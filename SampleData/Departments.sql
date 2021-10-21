@@ -1,0 +1,12 @@
+insert into Departments (did, dname) values (1, 'Services');
+insert into Departments (did, dname) values (2, 'Engineering');
+insert into Departments (did, dname) values (3, 'Marketing');
+insert into Departments (did, dname) values (4, 'Support');
+insert into Departments (did, dname) values (5, 'Research and Development');
+insert into Departments (did, dname) values (6, 'Sales');
+insert into Departments (did, dname) values (7, 'Legal');
+insert into Departments (did, dname) values (8, 'Training');
+insert into Departments (did, dname) values (9, 'Business Development');
+insert into Departments (did, dname) values (10, 'Human Resource Management');
+insert into Departments (did, dname) values (11, 'Finance');
+insert into Departments (did, dname) values (12, 'Operations');
