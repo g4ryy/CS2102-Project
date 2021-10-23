@@ -1,4 +1,4 @@
-DROP TABLE IF EXISTS Employees, Junior, Booker, Senior, Manager, Departments, HealthDeclaration, Sessions, MeetingRooms
+DROP TABLE IF EXISTS Employees, Junior, Booker, Senior, Manager, Departments, HealthDeclaration, Sessions, MeetingRoom, Updates, Joins;
 
 CREATE TABLE Employees(
     eid BIGSERIAL PRIMARY KEY,
