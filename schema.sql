@@ -5,5 +5,12 @@ TEXT contact
 DATE resignDate
 INT eid PRIMARY KEY);
 
-Hello world
 
+CREATE TABLE MEETING_ROOM(
+INT room
+INT floor
+TEXT rname
+INT did
+PRIMARY KEY (floor, room)
+FOREIGN KEY (did) REFERENCES DEPARTMENTS (did)
+	)
