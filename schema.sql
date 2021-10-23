@@ -5,5 +5,6 @@ TEXT contact
 DATE resignDate
 INT eid PRIMARY KEY);
 
-Hello world
+
+
 
