@@ -38,7 +38,8 @@ CREATE TABLE Departments (
 );
 
 CREATE TABLE HealthDeclarations (
-    declareDate DATE,
+    eid BIGINT NOT NULL,
+    declareDate DATE NOT NULL,
     temp NUMERIC NOT NULL, 
     fever BOOLEAN GENERATED ALWAYS AS (temp > 37.5) STORED, 
     PRIMARY KEY(eid, declareDate),
