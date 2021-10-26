@@ -1,4 +1,4 @@
-DROP PROCEDURE IF EXISTS add_department(INTEGER, TEXT), remove_department(INTEGER), declare_health(BIGINT, DATE, NUMERIC)
+DROP PROCEDURE IF EXISTS add_department(INTEGER, TEXT), remove_department(INTEGER), declare_health(BIGINT, DATE, NUMERIC);
 DROP FUNCTION IF EXISTS contact_tracing(BIGINT), non_compliance(DATE, DATE);
 ---------------------------------- Application Functionalities ------------------------------
 
@@ -15,28 +15,39 @@ CREATE OR REPLACE PROCEDURE remove_department(id INTEGER) AS $$
 $$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE PROCEDURE declare_health(id BIGINT, curr_date DATE, curr_temp NUMERIC) AS $$
-	BEGIN
-		IF EXISTS (SELECT 1 FROM HealthDeclarations WHERE eid = id AND declareDate = curr_date)
-		BEGIN
-			UPDATE HealthDeclarations SET temp = curr_temp WHERE eid = id AND declareDate = curr_date;
-		END
-		ELSE
-		BEGIN
-			INSERT INTO HealthDeclarations (eid, declareDate, temp) VALUES(id, curr_date, curr_temp);
-		END
+	BEGIN --assume that health declaration is to be done once at the end of the day
+		INSERT INTO HealthDeclarations (eid, declareDate, temp) VALUES(id, curr_date, curr_temp);
 	END;
 $$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION contact_tracing(id BIGINT) AS $$
-RETURNS RECORD AS $$
+RETURNS RECORD AS $$ --assume that health declaration is always moving forward in time
 	DECLARE
-		curr_fever := SELECT fever FROM HealthDeclarations WHERE eid = id ORDER BY declareDate DESC LIMIT 1;
-		curr_date := SELECT declareDate FROM HealthDeclarations WHERE eid = id ORDER BY declareDate DESC LIMIT 1;
-	BEGIN
-		IF curr_fever == 1
-		BEGIN
+		curr_fever NUMERIC := SELECT fever FROM HealthDeclarations WHERE eid = id ORDER BY declareDate DESC LIMIT 1;
+		curr_date DATE := SELECT declareDate FROM HealthDeclarations WHERE eid = id ORDER BY declareDate DESC LIMIT 1;
 
-		END;
+		curs2 CURSOR FOR (SELECT sessionDate, sessionTime, room, floor FROM Sessions 
+			WHERE bookerID = id AND sessionTime > curr_date);
+
+		r1 RECORD;
+		r2 RECORD;
+	BEGIN
+		IF curr_fever = 1 THEN
+			DELETE FROM Joins WHERE eid = id AND sessionTime > curr_date; --delete employee from session
+
+			OPEN curs2;
+			FETCH curs2 INTO r2;
+			EXIT WHEN NOT FOUND;
+			DELETE FROM Sessions WHERE sessionDate = r2.sessionDate --delete sessions booked by the employee /auto deletes sessions in joins
+			AND sessionTime = r2.sessionTime
+			AND room = r2.Room
+			AND floor = r2.Floor;
+			END LOOP;
+			CLOSE curs2;
+
+		ELSE
+			RETURN:
+		END IF;
 	END;
 $$ LANGUAGE plpgsql;
 
@@ -54,7 +65,7 @@ RETURNS TABLE(id BIGINT, days BIGINT) AS $$
 	END;
 $$ LANGUAGE plpgsql;
 
-//adeline add here//
+/*adeline add here*/
 CREATE OR REPLACE PROCEDURE Add_employee(ename_input TEXT,
     department_name TEXT,
     mobile_contact_input INTEGER,
@@ -74,7 +85,7 @@ BEGIN
         mobile_contact) VALUES(variable_did,
         ename_input,
         home_contact_input,
-        office_contact,
+        office_contact_input,
         mobile_contact_input) RETURNING eid INTO variable_id;
     IF LOWER(kind) = 'senior' THEN 
         INSERT INTO Booker(eid) VALUES(variable_id);
@@ -83,6 +94,7 @@ BEGIN
         INSERT INTO Booker(eid) VALUES(variable_id);
         INSERT INTO Manager(eid) VALUES(variable_id);
     ELSE INSERT INTO Junior(eid) VALUES(variable_id);
+    END IF;
 END;
 $$ LANGUAGE plpgsql;
 
