@@ -6,9 +6,9 @@ CREATE TABLE Employees (
 	resignedDate DATE,
 	ename TEXT NOT NULL,
 	email TEXT UNIQUE,
-	home_contact INTEGER,
-	mobile_contact INTEGER NOT NULL,
-	office_contact INTEGER NOT NULL,
+	home_contact TEXT,
+	mobile_contact TEXT NOT NULL,
+	office_contact TEXT NOT NULL,
 	FOREIGN KEY (did) REFERENCES Departments(did) ON UPDATE CASCADE
 );
 
