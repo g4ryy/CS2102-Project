@@ -54,8 +54,122 @@ RETURNS TABLE(id BIGINT, days BIGINT) AS $$
 	END;
 $$ LANGUAGE plpgsql;
 
+//adeline add here//
+CREATE OR REPLACE PROCEDURE Add_employee(ename_input TEXT,
+    department_name TEXT,
+    mobile_contact_input INTEGER,
+    home_contact_input INTEGER,
+    office_contact_input INTEGER,
+    kind TEXT)
+AS $$
+DECLARE 
+    variable_id BIGINT;
+    variable_did INTEGER;
+BEGIN
+    SELECT did FROM Departments WHERE LOWER(dname) = LOWER(department_name) INTO variable_did;
+    INSERT INTO Employees(did,
+        ename,
+        home_contact,
+        office_contact,
+        mobile_contact) VALUES(variable_did,
+        ename_input,
+        home_contact_input,
+        office_contact,
+        mobile_contact_input) RETURNING eid INTO variable_id;
+    IF LOWER(kind) = 'senior' THEN 
+        INSERT INTO Booker(eid) VALUES(variable_id);
+        INSERT INTO Senior(eid) VALUES(variable_id);
+    ELSEIF LOWER(kind) = 'manager' THEN
+        INSERT INTO Booker(eid) VALUES(variable_id);
+        INSERT INTO Manager(eid) VALUES(variable_id);
+    ELSE INSERT INTO Junior(eid) VALUES(variable_id);
+END;
+$$ LANGUAGE plpgsql;
 
+CREATE OR REPLACE PROCEDURE remove_employee(eid_input BIGSERIAL, resignationDate DATE)
+AS $$
+BEGIN
+    UPDATE Employees SET resignedDate = resignationDate WHERE eid = eid_input;
+    DELETE FROM Booker WHERE eid = eid_input;
+    DELETE FROM Junior WHERE eid = eid_input;
+    DELETE FROM Sessions WHERE bookerId = eid_input;
+    DELETE FROM Joins WHERE eid = eid_input;
+END;
+$$ LANGUAGE plpgsql;
 
+CREATE OR REPLACE PROCEDURE join_meeting(floor_num INTEGER,
+    room_num INTEGER,
+    meeting_date DATE,
+    start_hour INTEGER,
+    end_hour INTEGER,
+    eid_input BIGINT)
+AS $$
+DECLARE num_sessions INTEGER := ceil(end_hour/100 - start_hour/100);
+        counter INTEGER:= 1;
+        meeting_slot := start_hour;
+BEGIN
+    WHILE counter <= num_sessions LOOP
+        INSERT INTO Joins(eid,
+        sessionDate,
+        sessionTime,
+        room,
+        floor) VALUES(eid_input,
+        meeting_date,
+        meeting_slot,
+        room_num,
+        floor_num);
+        meeting_slot := meeting_slot + counter*100;
+    END LOOP;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE PROCEDURE leave_meeting(floor_num INTEGER,
+    room_num INTEGER,
+    meeting_date DATE,
+    start_hour INTEGER,
+    end_hour INTEGER,
+    eid_input BIGINT)
+AS $$
+DECLARE num_sessions INTEGER := ceil(end_hour/100 - start_hour/100);
+    counter INTEGER:= 1;
+    meeting_slot := start_hour;
+BEGIN
+    WHILE counter <= num_sessions LOOP
+        DELETE FROM Joins 
+        WHERE sessionTime = meeting_slot
+        AND eid = eid_input
+        AND sessionDate = meeting_date
+        AND room = room_num
+        AND floor = floor_num;
+        meeting_slot := meeting_slot + counter*100;
+    END LOOP;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE PROCEDURE approve_meeting(floor_num INTEGER,
+    room_num INTEGER,
+    meeting_date DATE,
+    start_hour INTEGER,
+    end_hour INTEGER,
+    eid_input BIGINT)
+AS $$
+DECLARE num_sessions INTEGER := ceil(end_hour/100 - start_hour/100);
+    counter INTEGER:= 1;
+    meeting_slot := start_hour;
+BEGIN
+    WHILE counter <= num_sessions LOOP
+        UPDATE Sessions
+        SET approverId = eid_input
+        WHERE sessionTime = meeting_slot
+        AND sessionDate = meeting_date
+        AND room = room_num
+        AND floor = floor_num;
+        meeting_slot := meeting_slot + counter*100;
+    END LOOP;
+END;
+$$ LANGUAGE plpgsql;
+
+//stop//
 ------------------------------------- TRIGGERS ---------------------------------------------
 -- generates unique email for a new employee that has just been added.
 CREATE OR REPLACE FUNCTION generate_email()
