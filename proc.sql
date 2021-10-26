@@ -24,7 +24,7 @@ CREATE OR REPLACE PROCEDURE declare_health(id BIGINT, curr_date DATE, curr_temp 
 		BEGIN
 			INSERT INTO HealthDeclarations (eid, declareDate, temp) VALUES(id, curr_date, curr_temp);
 		END
-	END
+	END;
 $$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION contact_tracing(id BIGINT) AS $$
