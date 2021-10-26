@@ -1,23 +1,30 @@
-DROP PROCEDURE IF EXISTS add_department(INTEGER, TEXT), remove_department(INTEGER), declare_health(BIGINT, DATE, NUMERIC), contact_tracing(BIGINT), non_compliance(DATE, DATE);
+DROP PROCEDURE IF EXISTS add_department(INTEGER, TEXT), remove_department(INTEGER), declare_health(BIGINT, DATE, NUMERIC)
+DROP FUNCTION IF EXISTS contact_tracing(BIGINT), non_compliance(DATE, DATE);
 ---------------------------------- Application Functionalities ------------------------------
 
 CREATE OR REPLACE PROCEDURE add_department(id INTEGER, name TEXT) AS $$
-	INSERT INTO Departments (did, dname) VALUES(id, name);
+	BEGIN
+		INSERT INTO Departments (did, dname) VALUES (id, name);
+	END;
 $$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE PROCEDURE remove_department(id INTEGER) AS $$
-	DELETE FROM Departments WHERE did = id;
+	BEGIN
+		DELETE FROM Departments WHERE did = id;
+	END;
 $$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE PROCEDURE declare_health(id BIGINT, curr_date DATE, curr_temp NUMERIC) AS $$
-	IF EXISTS (SELECT 1 FROM HealthDeclarations WHERE eid = id AND declareDate = curr_date)
 	BEGIN
-		UPDATE HealthDeclarations SET temp = curr_temp WHERE eid = id AND declareDate = curr_date;
-	END
-	ELSE
-	BEGIN
-		INSERT INTO HealthDeclarations (eid, declareDate, temp) VALUES(id, curr_date, curr_temp);
-	END
+		IF EXISTS (SELECT 1 FROM HealthDeclarations WHERE eid = id AND declareDate = curr_date)
+		BEGIN
+			UPDATE HealthDeclarations SET temp = curr_temp WHERE eid = id AND declareDate = curr_date;
+		END
+		ELSE
+		BEGIN
+			INSERT INTO HealthDeclarations (eid, declareDate, temp) VALUES(id, curr_date, curr_temp);
+		END
+	END;
 $$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION contact_tracing(id BIGINT) AS $$
@@ -34,11 +41,12 @@ RETURNS RECORD AS $$
 $$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION non_compliance(start_date DATE, end_date DATE)
-RETURNS TABLE(id BIGINT, days INTEGER) AS $$
+RETURNS TABLE(id BIGINT, days BIGINT) AS $$
 	DECLARE
 		totalDays INTEGER := end_date - start_date + 1;
 	BEGIN
-		SELECT eid, totalDays - COUNT(*) AS number_of_days
+		RETURN QUERY
+		SELECT eid, totalDays - COUNT(*)
 		FROM HealthDeclarations
 		WHERE declareDate >= start_date AND declareDate <= end_date
 		GROUP BY eid
