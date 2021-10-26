@@ -1,4 +1,4 @@
-DROP TABLE IF EXISTS Employees, Junior, Booker, Senior, Manager, Departments, HealthDeclaration, Sessions, MeetingRoom, Updates, Joins;
+DROP TABLE IF EXISTS Employees, Juniors, Bookers, Seniors, Managers, Departments, HealthDeclarations, Sessions, MeetingRooms, Updates, Joins;
 
 CREATE TABLE Employees (
     eid BIGSERIAL PRIMARY KEY,
@@ -24,12 +24,12 @@ CREATE TABLE Bookers (
 
 CREATE TABLE Seniors (
 	eid BIGINT PRIMARY KEY,
-	FOREIGN KEY (eid) REFERENCES Booker(eid) ON DELETE CASCADE ON UPDATE CASCADE
+	FOREIGN KEY (eid) REFERENCES Bookers(eid) ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 CREATE TABLE Managers (
 	eid BIGINT PRIMARY KEY,
-	FOREIGN KEY (eid) REFERENCES Booker(eid) ON DELETE CASCADE ON UPDATE CASCADE
+	FOREIGN KEY (eid) REFERENCES Bookers(eid) ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 CREATE TABLE Departments (
@@ -55,8 +55,8 @@ CREATE TABLE Sessions (
     approverId BIGINT,
     PRIMARY KEY (sessionDate, sessionTime, room, floor),
     FOREIGN KEY (room, floor) REFERENCES MeetingRooms(room, floor) ON DELETE CASCADE ON UPDATE CASCADE,
-    FOREIGN KEY (bookerId) REFERENCES Booker(eid),
-    FOREIGN KEY (approverId) REFERENCES Manager(eid),
+    FOREIGN KEY (bookerId) REFERENCES Bookers(eid),
+    FOREIGN KEY (approverId) REFERENCES Managers(eid),
     CHECK ((sessionDate > CURRENT_DATE) OR ((sessionDate = CURRENT_DATE) AND sessionTime > EXTRACT(HOUR FROM NOW())))
 );
 
@@ -87,7 +87,7 @@ CREATE TABLE Updates (
     floor INTEGER, 
     room INTEGER,
     PRIMARY KEY (update_date, floor, room),
-    FOREIGN KEY eid REFERENCES Manager(eid) ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY eid REFERENCES Managers(eid) ON DELETE CASCADE ON UPDATE CASCADE,
     FOREIGN KEY (floor, room) REFERENCES MeetingRoom(floor, room) ON DELETE CASCADE ON UPDATE CASCADE
 )
 
