@@ -9,7 +9,8 @@
 CREATE OR REPLACE FUNCTION generate_email()
 RETURNS TRIGGER AS $$
 BEGIN
-    UPDATE Employees SET email = LOWER(REPLACE(NEW.ename, ' ', ''))  || NEW.eid::TEXT || '@company.com';
+    UPDATE Employees 
+    SET email = LOWER(REPLACE(NEW.ename, ' ', ''))  || NEW.eid::TEXT || '@company.com' WHERE Employees.eid = NEW.eid;
     RETURN NULL;
 END;
 $$ LANGUAGE plpgsql; 
