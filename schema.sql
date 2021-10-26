@@ -1,5 +1,10 @@
 DROP TABLE IF EXISTS Employees, Juniors, Bookers, Seniors, Managers, Departments, HealthDeclarations, Sessions, MeetingRooms, Updates, Joins;
 
+CREATE TABLE Departments (
+    did INTEGER PRIMARY KEY,
+    dname TEXT NOT NULL
+);
+
 CREATE TABLE Employees (
     eid BIGSERIAL PRIMARY KEY,
 	did INTEGER NOT NULL,
@@ -32,11 +37,6 @@ CREATE TABLE Managers (
 	FOREIGN KEY (eid) REFERENCES Bookers(eid) ON DELETE CASCADE ON UPDATE CASCADE
 );
 
-CREATE TABLE Departments (
-    did INTEGER PRIMARY KEY,
-    dname TEXT NOT NULL
-);
-
 CREATE TABLE HealthDeclarations (
     eid BIGINT NOT NULL,
     declareDate DATE NOT NULL,
@@ -45,6 +45,15 @@ CREATE TABLE HealthDeclarations (
     PRIMARY KEY(eid, declareDate),
     FOREIGN KEY (eid) REFERENCES Employees(eid) ON DELETE CASCADE ON UPDATE CASCADE,
     CHECK (temp >= 34.0 AND temp <= 43.0)
+);
+
+CREATE TABLE MeetingRooms (
+    room INTEGER,
+    floor INTEGER,
+    rname TEXT,
+    did INTEGER,
+    PRIMARY KEY (floor, room),
+    FOREIGN KEY (did) REFERENCES Departments(did) ON UPDATE CASCADE
 );
 
 CREATE TABLE Sessions (
@@ -68,17 +77,8 @@ CREATE TABLE Joins (
     room INTEGER, 
     floor INTEGER,
     PRIMARY KEY (eid, sessionDate, sessionTime, room, floor),
-    FOREIGN KEY eid REFERENCES Employees(eid),
-    FOREIGN KEY (sessionDate, sessionTime, room, floor) REFERENCES Sessions(sessionDate, sessionTime, room, floor) ON DELETE CASCADE ON UPDATE CASCADE,
-);
-
-CREATE TABLE MeetingRooms (
-    room INTEGER,
-    floor INTEGER,
-    rname TEXT,
-    did INTEGER,
-    PRIMARY KEY (floor, room),
-    FOREIGN KEY (did) REFERENCES Departments(did) ON UPDATE CASCADE
+    FOREIGN KEY (eid) REFERENCES Employees(eid),
+    FOREIGN KEY (sessionDate, sessionTime, room, floor) REFERENCES Sessions(sessionDate, sessionTime, room, floor) ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 CREATE TABLE Updates (
@@ -88,7 +88,7 @@ CREATE TABLE Updates (
     floor INTEGER, 
     room INTEGER,
     PRIMARY KEY (update_date, floor, room),
-    FOREIGN KEY eid REFERENCES Managers(eid) ON DELETE CASCADE ON UPDATE CASCADE,
-    FOREIGN KEY (floor, room) REFERENCES MeetingRoom(floor, room) ON DELETE CASCADE ON UPDATE CASCADE
+    FOREIGN KEY (eid) REFERENCES Managers(eid) ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (floor, room) REFERENCES MeetingRooms(floor, room) ON DELETE CASCADE ON UPDATE CASCADE
 )
 
