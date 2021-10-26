@@ -40,7 +40,7 @@ CREATE TABLE Departments (
 CREATE TABLE HealthDeclarations (
     eid BIGINT NOT NULL,
     declareDate DATE NOT NULL,
-    temp NUMERIC NOT NULL, 
+    temp NUMERIC(3,1) NOT NULL, 
     fever BOOLEAN GENERATED ALWAYS AS (temp > 37.5) STORED, 
     PRIMARY KEY(eid, declareDate),
     FOREIGN KEY (eid) REFERENCES Employees(eid) ON DELETE CASCADE ON UPDATE CASCADE,
