@@ -495,35 +495,29 @@ INSERT INTO Juniors (eid) VALUES (199);
 INSERT INTO Juniors (eid) VALUES (200);
 
 -- Load dummy health declarations
-INSERT INTO HealthDeclarations (eid, declareDate, temp)  VALUES (1, '2021-01-01', 36.3)；
-INSERT INTO HealthDeclarations (eid, declareDate, temp)  VALUES (2, '2021-01-01', 36.3)；
-INSERT INTO HealthDeclarations (eid, declareDate, temp)  VALUES (3, '2021-01-01', 36.3)；
-INSERT INTO HealthDeclarations (eid, declareDate, temp)  VALUES (4, '2021-01-01', 36.3)；
-INSERT INTO HealthDeclarations (eid, declareDate, temp)  VALUES (5, '2021-01-01', 36.3)；
-INSERT INTO HealthDeclarations (eid, declareDate, temp)  VALUES (6, '2021-01-01', 36.3)；
-INSERT INTO HealthDeclarations (eid, declareDate, temp)  VALUES (7, '2021-01-01', 36.3)；
-INSERT INTO HealthDeclarations (eid, declareDate, temp)  VALUES (8, '2021-01-01', 36.3)；
-INSERT INTO HealthDeclarations (eid, declareDate, temp)  VALUES (1, '2021-01-02', 36.3)；
-INSERT INTO HealthDeclarations (eid, declareDate, temp)  VALUES (2, '2021-01-02', 36.3)；
-INSERT INTO HealthDeclarations (eid, declareDate, temp)  VALUES (3, '2021-01-02', 36.3)；
-INSERT INTO HealthDeclarations (eid, declareDate, temp)  VALUES (4, '2021-01-02', 36.3)；
-INSERT INTO HealthDeclarations (eid, declareDate, temp)  VALUES (5, '2021-01-02', 36.3)；
-INSERT INTO HealthDeclarations (eid, declareDate, temp)  VALUES (6, '2021-01-02', 36.3)；
-INSERT INTO HealthDeclarations (eid, declareDate, temp)  VALUES (7, '2021-01-02', 36.3)；
-INSERT INTO HealthDeclarations (eid, declareDate, temp)  VALUES (8, '2021-01-02', 36.3)；
-INSERT INTO HealthDeclarations (eid, declareDate, temp)  VALUES (1, '2021-01-03', 36.3)；
-INSERT INTO HealthDeclarations (eid, declareDate, temp)  VALUES (2, '2021-01-03', 36.3)；
-INSERT INTO HealthDeclarations (eid, declareDate, temp)  VALUES (3, '2021-01-03', 37.7)；
-INSERT INTO HealthDeclarations (eid, declareDate, temp)  VALUES (4, '2021-01-03', 36.3)；
-INSERT INTO HealthDeclarations (eid, declareDate, temp)  VALUES (5, '2021-01-03', 36.3)；
-INSERT INTO HealthDeclarations (eid, declareDate, temp)  VALUES (6, '2021-01-03', 36.3)；
-INSERT INTO HealthDeclarations (eid, declareDate, temp)  VALUES (7, '2021-01-03', 36.3)；
-INSERT INTO HealthDeclarations (eid, declareDate, temp)  VALUES (8, '2021-01-03', 36.3)；
-
-
-
-
-
-
-
-
+INSERT INTO HealthDeclarations (eid, declareDate, temp)  VALUES (1, '2021-01-01', 36.3);
+INSERT INTO HealthDeclarations (eid, declareDate, temp)  VALUES (2, '2021-01-01', 36.3);
+INSERT INTO HealthDeclarations (eid, declareDate, temp)  VALUES (3, '2021-01-01', 36.3);
+INSERT INTO HealthDeclarations (eid, declareDate, temp)  VALUES (4, '2021-01-01', 36.3);
+INSERT INTO HealthDeclarations (eid, declareDate, temp)  VALUES (5, '2021-01-01', 36.3);
+INSERT INTO HealthDeclarations (eid, declareDate, temp)  VALUES (6, '2021-01-01', 36.3);
+INSERT INTO HealthDeclarations (eid, declareDate, temp)  VALUES (7, '2021-01-01', 36.3);
+INSERT INTO HealthDeclarations (eid, declareDate, temp)  VALUES (8, '2021-01-01', 36.3);
+INSERT INTO HealthDeclarations (eid, declareDate, temp)  VALUES (1, '2021-01-02', 36.3);
+INSERT INTO HealthDeclarations (eid, declareDate, temp)  VALUES (2, '2021-01-02', 36.3);
+INSERT INTO HealthDeclarations (eid, declareDate, temp)  VALUES (3, '2021-01-02', 36.3);
+INSERT INTO HealthDeclarations (eid, declareDate, temp)  VALUES (4, '2021-01-02', 36.3);
+INSERT INTO HealthDeclarations (eid, declareDate, temp)  VALUES (5, '2021-01-02', 36.3);
+INSERT INTO HealthDeclarations (eid, declareDate, temp)  VALUES (6, '2021-01-02', 36.3);
+INSERT INTO HealthDeclarations (eid, declareDate, temp)  VALUES (7, '2021-01-02', 36.3);
+INSERT INTO HealthDeclarations (eid, declareDate, temp)  VALUES (8, '2021-01-02', 36.3);
+INSERT INTO HealthDeclarations (eid, declareDate, temp)  VALUES (1, '2021-01-03', 36.3);
+INSERT INTO HealthDeclarations (eid, declareDate, temp)  VALUES (2, '2021-01-03', 36.3);
+INSERT INTO HealthDeclarations (eid, declareDate, temp)  VALUES (3, '2021-01-03', 37.7);
+INSERT INTO HealthDeclarations (eid, declareDate, temp)  VALUES (4, '2021-01-03', 36.3);
+INSERT INTO HealthDeclarations (eid, declareDate, temp)  VALUES (5, '2021-01-03', 36.3);
+INSERT INTO HealthDeclarations (eid, declareDate, temp)  VALUES (6, '2021-01-03', 36.3);
+INSERT INTO HealthDeclarations (eid, declareDate, temp)  VALUES (7, '2021-01-03', 36.3);
+INSERT INTO HealthDeclarations (eid, declareDate, temp)  VALUES (8, '2021-01-03', 36.3);
+INSERT INTO HealthDeclarations (eid, declareDate, temp)  VALUES (9, '2021-01-01', 36.3);
+INSERT INTO HealthDeclarations (eid, declareDate, temp)  VALUES (9, '2021-01-03', 38.0);
