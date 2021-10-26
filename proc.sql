@@ -1,7 +1,7 @@
 DROP PROCEDURE IF EXISTS add_department(INTEGER, TEXT), remove_department(INTEGER), declare_health(BIGINT, DATE, NUMERIC);
 DROP FUNCTION IF EXISTS contact_tracing(BIGINT), non_compliance(DATE, DATE);
 ---------------------------------- Application Functionalities ------------------------------
-
+/*Evan*/
 CREATE OR REPLACE PROCEDURE add_department(id INTEGER, name TEXT) AS $$
 	BEGIN
 		INSERT INTO Departments (did, dname) VALUES (id, name);
@@ -64,7 +64,7 @@ RETURNS TABLE(id BIGINT, days BIGINT) AS $$
 		HAVING COUNT(*) < totalDays;
 	END;
 $$ LANGUAGE plpgsql;
-
+/*Evan stop*/
 /*adeline add here*/
 CREATE OR REPLACE PROCEDURE Add_employee(ename_input TEXT,
     department_name TEXT,
@@ -88,24 +88,24 @@ BEGIN
         office_contact_input,
         mobile_contact_input) RETURNING eid INTO variable_id;
     IF LOWER(kind) = 'senior' THEN 
-        INSERT INTO Booker(eid) VALUES(variable_id);
-        INSERT INTO Senior(eid) VALUES(variable_id);
+        INSERT INTO Bookers(eid) VALUES(variable_id);
+        INSERT INTO Seniors(eid) VALUES(variable_id);
     ELSEIF LOWER(kind) = 'manager' THEN
-        INSERT INTO Booker(eid) VALUES(variable_id);
-        INSERT INTO Manager(eid) VALUES(variable_id);
-    ELSE INSERT INTO Junior(eid) VALUES(variable_id);
+        INSERT INTO Bookers(eid) VALUES(variable_id);
+        INSERT INTO Managers(eid) VALUES(variable_id);
+    ELSE INSERT INTO Juniors(eid) VALUES(variable_id);
     END IF;
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE PROCEDURE remove_employee(eid_input BIGSERIAL, resignationDate DATE)
+CREATE OR REPLACE PROCEDURE remove_employee(eid_input BIGINT, resignationDate DATE)
 AS $$
 BEGIN
     UPDATE Employees SET resignedDate = resignationDate WHERE eid = eid_input;
-    DELETE FROM Booker WHERE eid = eid_input;
-    DELETE FROM Junior WHERE eid = eid_input;
-    DELETE FROM Sessions WHERE bookerId = eid_input;
-    DELETE FROM Joins WHERE eid = eid_input;
+    DELETE FROM Bookers WHERE eid = eid_input;
+    DELETE FROM Juniors WHERE eid = eid_input;
+    DELETE FROM Sessions WHERE bookerId = eid_input AND sessionDate > resignationDate; /*delete all meetings book by this guy who resigned*/
+    DELETE FROM Joins WHERE eid = eid_input; /*kick resign guy out of all future meeting participant*/
 END;
 $$ LANGUAGE plpgsql;
 
@@ -181,7 +181,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-//stop//
+/*stop*/
 ------------------------------------- TRIGGERS ---------------------------------------------
 -- generates unique email for a new employee that has just been added.
 CREATE OR REPLACE FUNCTION generate_email()
