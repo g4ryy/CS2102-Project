@@ -108,21 +108,28 @@ CREATE OR REPLACE PROCEDURE join_meeting(floor_num INTEGER,
     eid_input BIGINT)
 AS $$
 DECLARE num_sessions INTEGER := ceil(end_hour/100 - start_hour/100);
-        counter INTEGER:= 1;
-        meeting_slot := start_hour;
+        counter INTEGER := 1;
+        meeting_slot INTEGER := start_hour;
+        approval_indicator BIGINT;
 BEGIN
-    WHILE counter <= num_sessions LOOP
-        INSERT INTO Joins(eid,
-        sessionDate,
-        sessionTime,
-        room,
-        floor) VALUES(eid_input,
-        meeting_date,
-        meeting_slot,
-        room_num,
-        floor_num);
-        meeting_slot := meeting_slot + counter*100;
-    END LOOP;
+    SELECT approverId FROM Sessions WHERE sessionTime = start_hour
+        AND sessionDate = meeting_date
+        AND room = room_num
+        AND floor = floor_num INTO approval_indicator;
+    IF approval_indicator IS NULL THEN
+        WHILE counter <= num_sessions LOOP
+            INSERT INTO Joins(eid,
+            sessionDate,
+            sessionTime,
+            room,
+            floor) VALUES(eid_input,
+            meeting_date,
+            meeting_slot,
+            room_num,
+            floor_num);
+            meeting_slot := meeting_slot + counter*100;
+        END LOOP;
+    END IF;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -135,17 +142,24 @@ CREATE OR REPLACE PROCEDURE leave_meeting(floor_num INTEGER,
 AS $$
 DECLARE num_sessions INTEGER := ceil(end_hour/100 - start_hour/100);
     counter INTEGER:= 1;
-    meeting_slot := start_hour;
+    meeting_slot INTEGER:= start_hour;
+    approval_indicator BIGINT;
 BEGIN
-    WHILE counter <= num_sessions LOOP
-        DELETE FROM Joins 
-        WHERE sessionTime = meeting_slot
-        AND eid = eid_input
+    SELECT approverId FROM Sessions WHERE sessionTime = start_hour
         AND sessionDate = meeting_date
         AND room = room_num
-        AND floor = floor_num;
-        meeting_slot := meeting_slot + counter*100;
-    END LOOP;
+        AND floor = floor_num INTO approval_indicator;
+    IF approval_indicator IS NULL THEN
+        WHILE counter <= num_sessions LOOP
+            DELETE FROM Joins 
+            WHERE sessionTime = meeting_slot
+            AND eid = eid_input
+            AND sessionDate = meeting_date
+            AND room = room_num
+            AND floor = floor_num;
+            meeting_slot := meeting_slot + counter*100;
+        END LOOP;
+    END IF;
 END;
 $$ LANGUAGE plpgsql;
 
