@@ -1,14 +1,14 @@
 DROP TABLE IF EXISTS Employees, Junior, Booker, Senior, Manager, Departments, HealthDeclaration, Sessions, MeetingRoom, Updates, Joins;
 
-CREATE TABLE Employees(
+CREATE TABLE Employees (
     eid BIGSERIAL PRIMARY KEY,
 	did INTEGER NOT NULL,
 	resignedDate DATE,
-	ename TEXT,
+	ename TEXT NOT NULL,
 	email TEXT UNIQUE,
 	home_contact INTEGER,
-	mobile_contact INTEGER,
-	office_contact INTEGER,
+	mobile_contact INTEGER NOT NULL,
+	office_contact INTEGER NOT NULL,
 	FOREIGN KEY (did) REFERENCES Departments(did) ON UPDATE CASCADE
 );
 
@@ -57,7 +57,7 @@ CREATE TABLE Sessions (
     FOREIGN KEY (room, floor) REFERENCES MeetingRooms(room, floor) ON DELETE CASCADE ON UPDATE CASCADE,
     FOREIGN KEY (bookerId) REFERENCES Booker(eid),
     FOREIGN KEY (approverId) REFERENCES Manager(eid),
-    CHECK ((sessionDate > CURRENT_DATE) OR ((sessionDate = CURRENT_DATE) AND sessionTime > CURRENT_TIME))
+    CHECK ((sessionDate > CURRENT_DATE) OR ((sessionDate = CURRENT_DATE) AND sessionTime > EXTRACT(HOUR FROM NOW())))
 );
 
 CREATE TABLE Joins (
@@ -90,5 +90,4 @@ CREATE TABLE Updates (
     FOREIGN KEY eid REFERENCES Manager(eid) ON DELETE CASCADE ON UPDATE CASCADE,
     FOREIGN KEY (floor, room) REFERENCES MeetingRoom(floor, room) ON DELETE CASCADE ON UPDATE CASCADE
 )
-
 
