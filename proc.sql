@@ -22,33 +22,24 @@ $$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION contact_tracing(id BIGINT) AS $$
 RETURNS RECORD AS $$ --assume that health declaration is always moving forward in time
-	DECLARE
-		curr_fever NUMERIC := SELECT fever FROM HealthDeclarations WHERE eid = id ORDER BY declareDate DESC LIMIT 1;
-		curr_date DATE := SELECT declareDate FROM HealthDeclarations WHERE eid = id ORDER BY declareDate DESC LIMIT 1;
+    DECLARE
+        curr_fever NUMERIC := SELECT fever FROM HealthDeclarations WHERE eid = id ORDER BY declareDate DESC LIMIT 1;
+        curr_date DATE := SELECT declareDate FROM HealthDeclarations WHERE eid = id ORDER BY declareDate DESC LIMIT 1;
 
-		curs2 CURSOR FOR (SELECT sessionDate, sessionTime, room, floor FROM Sessions 
-			WHERE bookerID = id AND sessionTime > curr_date);
+        curs1 CURSOR 
+    BEGIN
+        IF curr_fever = 1 THEN
+            DELETE FROM Joins WHERE eid = id AND sessionTime > curr_date; --delete employee from session
+            DELETE FROM Sessions WHERE bookerID = id AND sessionTime > curr_date;  --delete sessions booked by the employee /auto deletes sessions in joins
 
-		r1 RECORD;
-		r2 RECORD;
-	BEGIN
-		IF curr_fever = 1 THEN
-			DELETE FROM Joins WHERE eid = id AND sessionTime > curr_date; --delete employee from session
+            SELECT room, floor INTO contactRoom 
+            FROM Joins WHERE eid = id
+            AND (sessionTime = curr_date OR sessionTime = curr_date - 1 OR sessionTime = curr_date - 2 OR sessionTime = curr_date - 3)
 
-			OPEN curs2;
-			FETCH curs2 INTO r2;
-			EXIT WHEN NOT FOUND;
-			DELETE FROM Sessions WHERE sessionDate = r2.sessionDate --delete sessions booked by the employee /auto deletes sessions in joins
-			AND sessionTime = r2.sessionTime
-			AND room = r2.Room
-			AND floor = r2.Floor;
-			END LOOP;
-			CLOSE curs2;
-
-		ELSE
-			RETURN:
-		END IF;
-	END;
+        ELSE
+            RETURN:
+        END IF;
+    END;
 $$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION non_compliance(start_date DATE, end_date DATE)
