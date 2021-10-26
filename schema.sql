@@ -12,22 +12,22 @@ CREATE TABLE Employees (
 	FOREIGN KEY (did) REFERENCES Departments(did) ON UPDATE CASCADE
 );
 
-CREATE TABLE Junior (
+CREATE TABLE Juniors (
 	eid BIGINT PRIMARY KEY,
 	FOREIGN KEY (eid) REFERENCES Employees(eid) ON DELETE CASCADE ON UPDATE CASCADE
 );
 
-CREATE TABLE Booker (
+CREATE TABLE Bookers (
 	eid BIGINT PRIMARY KEY,
 	FOREIGN KEY (eid) REFERENCES Employees(eid) ON DELETE CASCADE ON UPDATE CASCADE
 );
 
-CREATE TABLE Senior (
+CREATE TABLE Seniors (
 	eid BIGINT PRIMARY KEY,
 	FOREIGN KEY (eid) REFERENCES Booker(eid) ON DELETE CASCADE ON UPDATE CASCADE
 );
 
-CREATE TABLE Manager (
+CREATE TABLE Managers (
 	eid BIGINT PRIMARY KEY,
 	FOREIGN KEY (eid) REFERENCES Booker(eid) ON DELETE CASCADE ON UPDATE CASCADE
 );
@@ -37,7 +37,7 @@ CREATE TABLE Departments (
     dname TEXT NOT NULL
 );
 
-CREATE TABLE HealthDeclaration (
+CREATE TABLE HealthDeclarations (
     declareDate DATE,
     temp NUMERIC NOT NULL, 
     fever BOOLEAN GENERATED ALWAYS AS (temp > 37.5) STORED, 
@@ -71,7 +71,7 @@ CREATE TABLE Joins (
     FOREIGN KEY (sessionDate, sessionTime, room, floor) REFERENCES Sessions(sessionDate, sessionTime, room, floor) ON DELETE CASCADE ON UPDATE CASCADE,
 );
 
-CREATE TABLE MeetingRoom (
+CREATE TABLE MeetingRooms (
     room INTEGER,
     floor INTEGER,
     rname TEXT,
