@@ -240,6 +240,17 @@ CREATE OR REPLACE PROCEDURE change_capacity(floor_number INTEGER, room_number IN
 	INSERT INTO Updates (eid, update_date, new_cap, floor, room) VALUES(eid, date, capacity, floor_number, room_number);
 $$ LANGUAGE plpgsql;
 
+CREATE OR REPLACE FUNCTION view_booking_report(start_date DATE, eid BIGINT)
+RETURN TABLE(floor_number INTEGER, room_number INTEGER, meeting_date DATE, start_hour INTEGER, is_approved BOOLEAN) AS $$
+    BEGIN
+        RETURN QUERY
+        SELECT floor, room, sessionDate, sessionTime, approverID IS NULL
+        FROM Sessions
+        WHERE sessionDate >= start_date AND bookerID = eid
+        ORDER BY sessionDate, sessionTime;
+    END;
+$$ LANGUAGE plpgsql;
+
 ------------------------------------- TRIGGERS ---------------------------------------------
 -- generates unique email for a new employee that has just been added.
 CREATE OR REPLACE FUNCTION generate_email()
@@ -254,3 +265,138 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER new_employee_added 
 AFTER INSERT ON Employees
 FOR EACH ROW EXECUTE FUNCTION generate_email();
+
+-- ensure junior cannot be senior or manager
+CREATE OR REPLACE FUNCTION not_senior_manager
+RETURNS TRIGGER AS 
+$$
+DECLARE
+    count_senior NUMERIC;
+    count_manager NUMERIC;
+BEGIN
+    SELECT COUNT (*) INTO count_senior
+    FROM Seniors
+    WHERE Seniors.eid = NEW.eid;
+
+    SELECT COUNT(*) INTO count_manager
+    FROM Managers
+    WHERE Managers.eid = NEW.eid;
+
+    IF (count_senior > 0) OR (count_manager > 0) THEN
+        RETURN NULL;
+    ELSE
+        RETURN NEW;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER check_junior
+BEFORE INSERT OR UPDATE ON Juniors
+FOR EACH ROW 
+EXECUTE FUNCTION not_senior_manager();
+
+-- ensure senior cannot be junior or manager
+CREATE OR REPLACE FUNCTION not_junior_manager
+RETURNS TRIGGER AS 
+$$
+DECLARE
+    count_junior NUMERIC;
+    count_manager NUMERIC;
+BEGIN
+    SELECT COUNT (*) INTO count_junior
+    FROM Juniors
+    WHERE Juniors.eid = NEW.eid;
+
+    SELECT COUNT(*) INTO count_manager
+    FROM Managers
+    WHERE Managers.eid = NEW.eid;
+
+    IF (count_junior > 0) OR (count_manager > 0) THEN
+        RETURN NULL;
+    ELSE
+        RETURN NEW;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER check_senior
+BEFORE INSERT OR UPDATE ON Seniors
+FOR EACH ROW 
+EXECUTE FUNCTION not_junior_manager();
+
+-- ensure manager cannot be junior or senior
+CREATE OR REPLACE FUNCTION not_junior_senior
+RETURNS TRIGGER AS $$
+DECLARE
+    count_junior NUMERIC;
+    count_senior NUMERIC;
+BEGIN
+    SELECT COUNT (*) INTO count_junior
+    FROM Juniors
+    WHERE Juniors.eid = NEW.eid;
+
+    SELECT COUNT(*) INTO count_senior
+    FROM Seniors
+    WHERE Seniors.eid = NEW.eid;
+
+    IF (count_junior > 0) OR (count_senior > 0) THEN
+        RETURN NULL;
+    ELSE
+        RETURN NEW;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER check_manager
+BEFORE INSERT OR UPDATE ON Managers
+FOR EACH ROW 
+EXECUTE FUNCTION not_junior_senior();
+
+-- prevent booking if booker has fever
+CREATE OR REPLACE FUNCTION check_fever_for_booking
+RETURNS TRIGGER AS $$
+DECLARE
+    fever_status BOOLEAN;
+BEGIN
+    SELECT fever INTO fever_status
+    FROM HealthDeclarations
+    WHERE HealthDeclarations.eid = NEW.bookerId;
+
+    IF fever_status = 't' THEN
+        RAISE EXCEPTION 'Cannot book when having fever!';
+        RETURN NULL;
+    ELSE
+        RETURN NEW;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER prevent_book_if_fever
+BEFORE INSERT OR UPDATE ON Sessions
+FOR EACH ROW
+EXECUTE FUNCTION check_fever_for_booking;
+
+-- prevent joining booked meeting if employee has fever
+CREATE OR REPLACE FUNCTION check_fever_for_joining
+RETURNS TRIGGER AS $$
+DECLARE
+    fever_status BOOLEAN;
+BEGIN
+    SELECT fever INTO fever_status
+    FROM HealthDeclarations
+    WHERE HealthDeclarations.eid = NEW.eid;
+
+    IF fever_status = 't' THEN
+        RAISE EXCEPTION 'Cannot join when having fever!';
+        RETURN NULL;
+    ELSE
+        RETURN NEW;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER prevent_join_if_fever
+BEFORE INSERT OR UPDATE ON Joins
+FOR EACH ROW
+EXECUTE FUNCTION check_fever_for_joining;
+
