@@ -82,7 +82,7 @@ CREATE TABLE Joins (
 );
 
 CREATE TABLE Updates (
-    eid BIGINT,
+    eid BIGINT NOT NULL,
     update_date DATE,
     new_cap INTEGER NOT NULL,
     floor INTEGER, 

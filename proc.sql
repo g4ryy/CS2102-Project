@@ -186,6 +186,7 @@ RETURNS TABLE(id BIGINT, days BIGINT) AS $$
 	END;
 $$ LANGUAGE plpgsql;
 
+<<<<<<< HEAD
 CREATE OR REPLACE FUNCTION search_room
 	(capacity INT, date DATE, start_hour INT, end_hour INT);
 RETURNS TABLE (floor, room) AS $$
@@ -239,6 +240,8 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE PROCEDURE change_capacity(floor_number INTEGER, room_number INTEGER, capacity INTEGER, date DATE, eid INTEGER) AS $$
 	INSERT INTO Updates (eid, update_date, new_cap, floor, room) VALUES(eid, date, capacity, floor_number, room_number);
 $$ LANGUAGE plpgsql;
+=======
+>>>>>>> c5727744bea6b6c1408f84560be990c5e093d423
 ------------------------------------- TRIGGERS ---------------------------------------------
 -- generates unique email for a new employee that has just been added.
 CREATE OR REPLACE FUNCTION generate_email()
