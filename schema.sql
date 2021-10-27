@@ -38,8 +38,8 @@ CREATE TABLE Managers (
 );
 
 CREATE TABLE HealthDeclarations (
-    eid BIGINT NOT NULL,
-    declareDate DATE NOT NULL,
+    eid BIGINT,
+    declareDate DATE,
     temp NUMERIC(3,1) NOT NULL, 
     fever BOOLEAN GENERATED ALWAYS AS (temp > 37.5) STORED, 
     PRIMARY KEY(eid, declareDate),
@@ -58,7 +58,7 @@ CREATE TABLE MeetingRooms (
 
 CREATE TABLE Sessions (
     sessionDate DATE,
-    sessionTime INTEGER,
+    sessionTime INTEGER, -- In 24 hours format (0-23)
     room INTEGER, 
     floor INTEGER,
     bookerId BIGINT NOT NULL,
@@ -67,6 +67,7 @@ CREATE TABLE Sessions (
     FOREIGN KEY (room, floor) REFERENCES MeetingRooms(room, floor) ON DELETE CASCADE ON UPDATE CASCADE,
     FOREIGN KEY (bookerId) REFERENCES Bookers(eid),
     FOREIGN KEY (approverId) REFERENCES Managers(eid),
+    CHECK ((sessionTime >= 0) AND (sessionTime < 24)),
     CHECK ((sessionDate > CURRENT_DATE) OR ((sessionDate = CURRENT_DATE) AND sessionTime > EXTRACT(HOUR FROM NOW())))
 );
 
