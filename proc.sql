@@ -139,18 +139,35 @@ RETURNS RECORD AS $$ --assume that health declaration is always moving forward i
         curr_fever NUMERIC := SELECT fever FROM HealthDeclarations WHERE eid = id ORDER BY declareDate DESC LIMIT 1;
         curr_date DATE := SELECT declareDate FROM HealthDeclarations WHERE eid = id ORDER BY declareDate DESC LIMIT 1;
 
-        curs1 CURSOR 
+        curs1 CURSOR;
+        r1 RECORD;
     BEGIN
         IF curr_fever = 1 THEN
-            DELETE FROM Joins WHERE eid = id AND sessionTime > curr_date; --delete employee from session
+            DELETE FROM Joins WHERE eid = id AND sessionTime > curr_date; --delete employee from future meetings
             DELETE FROM Sessions WHERE bookerID = id AND sessionTime > curr_date;  --delete sessions booked by the employee /auto deletes sessions in joins
 
-            SELECT room, floor INTO contactRoom 
-            FROM Joins WHERE eid = id
-            AND (sessionTime = curr_date OR sessionTime = curr_date - 1 OR sessionTime = curr_date - 2 OR sessionTime = curr_date - 3)
+            SELECT room, floor, sessionDate, sessionTime INTO contactRoom 
+            FROM Sessions WHERE eid = id
+            AND approverID IS NOT NULL
+            AND (sessionTime = curr_date OR sessionTime = curr_date - 1 OR sessionTime = curr_date - 2 OR sessionTime = curr_date - 3);
+
+            SELECT eid INTO employeesCloseContact
+            FROM Sessions s, contactRoom c
+            WHERE s.room = c.room AND s.floor = c.floor AND s.sessionDate = c.sessionDate AND s.sessionTime = c.sessionTime;
+
+            OPEN curs1 FOR SELECT * FROM employeesCloseContact;
+            LOOP
+            FETCH curs1 INTO r1;
+            EXIT WHEN NOT FOUND;
+
+            DELETE FROM Joins WHERE eid = r1.id AND (sessionTime >= curr_date OR sessionTime < curr_date + 7) --delete contacted employees from future meetings
+
+            END LOOP;
+            CLOSE curs1;
+            RETURN employeesCloseContact;
 
         ELSE
-            RETURN:
+            RETURN;
         END IF;
     END;
 $$ LANGUAGE plpgsql;
