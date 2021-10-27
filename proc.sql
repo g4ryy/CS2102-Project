@@ -11,7 +11,23 @@ CREATE OR REPLACE PROCEDURE remove_department(id INTEGER) AS $$
 	END;
 $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE PROCEDURE Add_employee(ename_input TEXT, department_name TEXT, mobile_contact_input INTEGER, home_contact_input INTEGER,
+CREATE OR REPLACE PROCEDURE add_room(floor_number INTEGER, room_number INTEGER, room_name TEXT, room_capacity INTEGER, departmentId INTEGER) AS $$
+	BEGIN
+    INSERT INTO MeetingRooms (room, floor, rname, did) VALUES (room_number, floor_number, room_name, departmentId);
+    INSERT INTO Updates (update_date, new_cap, floor, room) VALUES (CURRENT_DATE, room_capacity, floor_number, room_number)
+    END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE PROCEDURE change_capacity(floor_number INTEGER, room_number INTEGER, capacity INTEGER, changed_date DATE, eid_input INTEGER) AS $$
+    BEGIN
+        IF ((eid_input IN (SELECT eid FROM Managers)) AND 
+            (eid_input IN (SELECT eid FROM Employees NATURAL JOIN MeetingRooms WHERE floor = floor_number AND room = room_number))) THEN
+            INSERT INTO Updates(update_date, new_cap, floor, room) VALUES(changed_date, capacity, floor_number, room_number);
+        END IF;
+    END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE PROCEDURE add_employee(ename_input TEXT, department_name TEXT, mobile_contact_input INTEGER, home_contact_input INTEGER,
     office_contact_input INTEGER, kind TEXT) AS $$
     DECLARE 
         variable_id BIGINT;
@@ -39,6 +55,71 @@ CREATE OR REPLACE PROCEDURE remove_employee(eid_input BIGINT, resignationDate DA
         DELETE FROM Sessions WHERE bookerId = eid_input AND sessionDate > resignationDate; /*delete all meetings booked by this employee*/
         DELETE FROM Joins WHERE eid = eid_input; /*Remove this employee from all future meetings*/
     END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION search_room(capacity_input INTEGER, search_date DATE, start_hour INTEGER, end_hour INTEGER)
+RETURNS TABLE(floor_number INTEGER, room_number INTEGER, Department_id INTEGER, capacity INTEGER) AS $$
+BEGIN
+RETURN QUERY
+    SELECT u2.floor, u2.room, m2.did, u2.new_cap
+    FROM MeetingRooms AS m2, Updates u2
+    WHERE NOT EXISTS (
+        SELECT 1
+        FROM Sessions AS s, MeetingRooms AS m
+        WHERE (s.sessionDate = search_date
+            AND s.sessionTime >= start_hour
+            AND s.sessionTime < end_hour
+            AND m.room = s.room
+            AND m.room = m2.room
+            AND m.floor = m2.floor
+            AND m.floor = s.floor))
+    AND u2.new_cap >= capacity_input
+    AND u2.floor = m2.floor
+    AND u2.room = m2.room
+    AND u2.update_date IN (SELECT MAX(update_date)
+        FROM Updates U
+        WHERE U.room = m2.room 
+        AND U.floor = m2.floor
+        AND U.update_date <= search_date)
+    ORDER BY u2.new_cap;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE PROCEDURE book_room(floor_num INT, room_num INT, booking_date DATE, start_hour INT, end_hour INT, eid INT) AS $$
+    DECLARE temp INT := start_hour;
+    BEGIN
+        IF EXISTS (SELECT 1 FROM search_room(0, booking_date, start_hour, end_hour) AS br
+            WHERE br.floor_number = floor_num AND br.room_number = room_num)
+        THEN
+            LOOP
+                EXIT WHEN temp >= end_hour;
+                INSERT INTO Sessions(sessionDate, sessionTime, room, floor, bookerId)
+                VALUES (booking_date, temp, room_num, floor_num, eid);
+                temp := temp + 1;
+            END LOOP;
+        END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE PROCEDURE unbook_room(floor_number INT, room_number INT, unbookingDate DATE, start_hour INT, end_hour INT, eid INT)
+AS $$
+    DECLARE temp INT := start_hour;
+    BEGIN
+        IF EXISTS (SELECT 1 FROM Sessions WHERE bookerId = eid
+        AND floor_number = floor
+        AND room_number = room
+        AND unbookingDate = sessionDate)
+        THEN
+            LOOP
+                EXIT WHEN temp >= end_hour;
+                DELETE FROM Sessions WHERE bookerId = eid AND floor_number = floor
+                AND room_number = room
+                AND unbookingDate = sessionDate
+                AND temp = sessionTime;
+                temp := temp + 1;
+            END LOOP;
+        END IF;
+END;
 $$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE PROCEDURE join_meeting(floor_num INTEGER,
@@ -186,59 +267,6 @@ RETURNS TABLE(id BIGINT, days BIGINT) AS $$
 	END;
 $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION search_room
-	(capacity INT, date DATE, start_hour INT, end_hour INT);
-RETURNS TABLE (floor, room) AS $$
-BEGIN
-	SELECT m2.room, m2.floor
-	FROM MeetingRoom AS m2
-	WHERE NOT EXISTS (
-		SELECT m.room, m.floor, u.floor, u.room, u.update_date, u.new_cap
-		FROM Sessions AS s, MeetingRoom AS m, Updates AS u
-		WHERE (s.sessionDate = date
-			AND s.sessionTime >= start_hour
-			AND sessionTime <= end_hour
-			AND m.room = u.room
-			AND m.floor = u.floor
-			AND date >= u.update_date
-			AND capacity <= new_cap))
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE OR REPLACE FUNCTION book_room(floor_number INT, room_number INT, date DATE, start_hour INT, end_hour INT, eid INT)
-RETURNS VOID AS $$
-	DECLARE temp INT := start_hour;
-	IF EXISTS (SELECT 1 FROM book_room(1, date, start_hour, end_hour) AS br WHERE br.floor = floor_number AND br.room = room_number)
-	IF eid (SELECT 1 FROM HealthDeclarations AS h WHERE h.eid = eid AND h.fever = false)
-	BEGIN
-		LOOP
-			EXIT WHEN temp > end_hour
-			INSERT INTO Sessions (sessionDate, sessionTime, room, floor, bookerId, approverId) VALUES (date, temp, room_number, floor_number, eid, NULL);
-			temp := temp + 1
-		END LOOP;
-END;
-$$ LANGUAGE plpgsql
-
-CREATE OR REPLACE FUNCTION unbook_room(floor_number INT, room_nuber INT, date DATE, start_hour INT, end_hour INT, eid INT)
-RETURNS VOID AS $$
-	DECLARE temp INT := start_hour;
-	IF EXISTS (SELECT 1 FROM Sessions WHERE eid = id AND floor_number = floor AND room_number = room AND date = sessionDate AND start_hour = sessionTime)
-	BEGIN
-		LOOP
-			EXIT WHEN temp > end_hour
-			DELETE FROM Sessions WHERE eid = id AND floor_number = floor AND room_number = room AND date = sessionDate AND temp = sessionTime;
-			temp := temp + 1
-		END LOOP;
-END;
-$$ LANGUAGE plpgsql
-
-CREATE OR REPLACE PROCEDURE add_room(floor_number INTEGER, room_number INTEGER, room_name TEXT, room_capacity INTEGER, departmentId INTEGER) AS $$
-	INSERT INTO MeetingRooms (room, floor, rname, did) VALUES(floor_number, room_number, room_name, departmentId);
-$$ LANGUAGE plpgsql;
-
-CREATE OR REPLACE PROCEDURE change_capacity(floor_number INTEGER, room_number INTEGER, capacity INTEGER, date DATE, eid INTEGER) AS $$
-	INSERT INTO Updates (eid, update_date, new_cap, floor, room) VALUES(eid, date, capacity, floor_number, room_number);
-$$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION view_booking_report(start_date DATE, eid BIGINT)
 RETURN TABLE(floor_number INTEGER, room_number INTEGER, meeting_date DATE, start_hour INTEGER, is_approved BOOLEAN) AS $$
@@ -267,7 +295,7 @@ AFTER INSERT ON Employees
 FOR EACH ROW EXECUTE FUNCTION generate_email();
 
 -- ensure junior cannot be senior or manager
-CREATE OR REPLACE FUNCTION not_senior_manager
+CREATE OR REPLACE FUNCTION not_senior_manager()
 RETURNS TRIGGER AS 
 $$
 DECLARE
@@ -296,7 +324,7 @@ FOR EACH ROW
 EXECUTE FUNCTION not_senior_manager();
 
 -- ensure senior cannot be junior or manager
-CREATE OR REPLACE FUNCTION not_junior_manager
+CREATE OR REPLACE FUNCTION not_junior_manager()
 RETURNS TRIGGER AS 
 $$
 DECLARE
@@ -325,7 +353,7 @@ FOR EACH ROW
 EXECUTE FUNCTION not_junior_manager();
 
 -- ensure manager cannot be junior or senior
-CREATE OR REPLACE FUNCTION not_junior_senior
+CREATE OR REPLACE FUNCTION not_junior_senior()
 RETURNS TRIGGER AS $$
 DECLARE
     count_junior NUMERIC;
@@ -353,14 +381,15 @@ FOR EACH ROW
 EXECUTE FUNCTION not_junior_senior();
 
 -- prevent booking if booker has fever
-CREATE OR REPLACE FUNCTION check_fever_for_booking
+CREATE OR REPLACE FUNCTION check_fever_for_booking()
 RETURNS TRIGGER AS $$
 DECLARE
     fever_status BOOLEAN;
 BEGIN
     SELECT fever INTO fever_status
     FROM HealthDeclarations
-    WHERE HealthDeclarations.eid = NEW.bookerId;
+    WHERE HealthDeclarations.eid = NEW.bookerId
+    AND HealthDeclarations.declareDate = NEW.sessionDate;
 
     IF fever_status = 't' THEN
         RAISE EXCEPTION 'Cannot book when having fever!';
@@ -374,10 +403,10 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER prevent_book_if_fever
 BEFORE INSERT OR UPDATE ON Sessions
 FOR EACH ROW
-EXECUTE FUNCTION check_fever_for_booking;
+EXECUTE FUNCTION check_fever_for_booking();
 
 -- prevent joining booked meeting if employee has fever
-CREATE OR REPLACE FUNCTION check_fever_for_joining
+CREATE OR REPLACE FUNCTION check_fever_for_joining()
 RETURNS TRIGGER AS $$
 DECLARE
     fever_status BOOLEAN;
@@ -398,5 +427,5 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER prevent_join_if_fever
 BEFORE INSERT OR UPDATE ON Joins
 FOR EACH ROW
-EXECUTE FUNCTION check_fever_for_joining;
+EXECUTE FUNCTION check_fever_for_joining();
 
