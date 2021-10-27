@@ -186,6 +186,60 @@ RETURNS TABLE(id BIGINT, days BIGINT) AS $$
 	END;
 $$ LANGUAGE plpgsql;
 
+CREATE OR REPLACE FUNCTION search_room
+	(capacity INT, date DATE, start_hour INT, end_hour INT);
+RETURNS TABLE (floor, room) AS $$
+BEGIN
+	SELECT m2.room, m2.floor
+	FROM MeetingRoom AS m2
+	WHERE NOT EXISTS (
+		SELECT m.room, m.floor, u.floor, u.room, u.update_date, u.new_cap
+		FROM Sessions AS s, MeetingRoom AS m, Updates AS u
+		WHERE (s.sessionDate = date
+			AND s.sessionTime >= start_hour
+			AND sessionTime <= end_hour
+			AND m.room = u.room
+			AND m.floor = u.floor
+			AND date >= u.update_date
+			AND capacity <= new_cap))
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION book_room(floor_number INT, room_number INT, date DATE, start_hour INT, end_hour INT, eid INT)
+RETURNS VOID AS $$
+	DECLARE temp INT := start_hour;
+	IF EXISTS (SELECT 1 FROM book_room(1, date, start_hour, end_hour) AS br WHERE br.floor = floor_number AND br.room = room_number)
+	IF eid (SELECT 1 FROM HealthDeclarations AS h WHERE h.eid = eid AND h.fever = false)
+	BEGIN
+		LOOP
+			EXIT WHEN temp > end_hour
+			INSERT INTO Sessions (sessionDate, sessionTime, room, floor, bookerId, approverId) VALUES (date, temp, room_number, floor_number, eid, NULL);
+			temp := temp + 1
+		END LOOP;
+END;
+$$ LANGUAGE plpgsql
+
+CREATE OR REPLACE FUNCTION unbook_room(floor_number INT, room_nuber INT, date DATE, start_hour INT, end_hour INT, eid INT)
+RETURNS VOID AS $$
+	DECLARE temp INT := start_hour;
+	IF EXISTS (SELECT 1 FROM Sessions WHERE eid = id AND floor_number = floor AND room_number = room AND date = sessionDate AND start_hour = sessionTime)
+	BEGIN
+		LOOP
+			EXIT WHEN temp > end_hour
+			DELETE FROM Sessions WHERE eid = id AND floor_number = floor AND room_number = room AND date = sessionDate AND temp = sessionTime;
+			temp := temp + 1
+		END LOOP;
+END;
+$$ LANGUAGE plpgsql
+
+CREATE OR REPLACE PROCEDURE add_room(floor_number INTEGER, room_number INTEGER, room_name TEXT, room_capacity INTEGER, departmentId INTEGER) AS $$
+	INSERT INTO MeetingRooms (room, floor, rname, did) VALUES(floor_number, room_number, room_name, departmentId);
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE PROCEDURE change_capacity(floor_number INTEGER, room_number INTEGER, capacity INTEGER, date DATE, eid INTEGER) AS $$
+	INSERT INTO Updates (eid, update_date, new_cap, floor, room) VALUES(eid, date, capacity, floor_number, room_number);
+$$ LANGUAGE plpgsql;
+
 CREATE OR REPLACE FUNCTION view_booking_report(start_date DATE, eid BIGINT)
 RETURN TABLE(floor_number INTEGER, room_number INTEGER, meeting_date DATE, start_hour INTEGER, is_approved BOOLEAN) AS $$
     BEGIN
@@ -196,7 +250,6 @@ RETURN TABLE(floor_number INTEGER, room_number INTEGER, meeting_date DATE, start
         ORDER BY sessionDate, sessionTime;
     END;
 $$ LANGUAGE plpgsql;
-
 
 ------------------------------------- TRIGGERS ---------------------------------------------
 -- generates unique email for a new employee that has just been added.
