@@ -357,12 +357,19 @@ BEFORE INSERT OR UPDATE ON Juniors
 FOR EACH ROW
 EXECUTE FUNCTION prevent_junior_booker();
 
--- prevent booking if booker has fever
-CREATE OR REPLACE FUNCTION check_fever_for_booking()
+/**prevent booking if :
+1. booker has resigned or
+2. booker has fever **/
+CREATE OR REPLACE FUNCTION check_for_booking()
 RETURNS TRIGGER AS $$
 DECLARE
     fever_status BOOLEAN;
 BEGIN
+    IF NEW.sessionDate > (SELECT resignedDate FROM Employees E WHERE E.eid = NEW.bookerId) THEN
+        RAISE EXCEPTION 'Booker already resigned!';
+        RETURN NULL;
+    END IF;
+
     SELECT fever INTO fever_status
     FROM HealthDeclarations
     WHERE HealthDeclarations.eid = NEW.bookerId
@@ -377,17 +384,24 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER prevent_book_if_fever
+CREATE TRIGGER prevent_book_if_resigned_or_fever
 BEFORE INSERT OR UPDATE ON Sessions
 FOR EACH ROW
-EXECUTE FUNCTION check_fever_for_booking();
+EXECUTE FUNCTION check_for_booking();
 
--- prevent joining booked meeting if employee has fever
-CREATE OR REPLACE FUNCTION check_fever_for_joining()
+/**prevent joining if :
+1. employee has resigned or 
+2. employee has fever **/
+CREATE OR REPLACE FUNCTION check_for_joining()
 RETURNS TRIGGER AS $$
 DECLARE
     fever_status BOOLEAN;
 BEGIN
+    IF NEW.sessionDate > (SELECT resignedDate FROM Employees E WHERE E.eid = NEW.eid) THEN
+        RAISE EXCEPTION 'Employee already resigned!';
+        RETURN NULL;
+    END IF;
+
     SELECT fever INTO fever_status
     FROM HealthDeclarations
     WHERE HealthDeclarations.eid = NEW.eid
@@ -402,10 +416,10 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER prevent_join_if_fever
+CREATE TRIGGER prevent_join_if_resigned_or_fever
 BEFORE INSERT OR UPDATE ON Joins
 FOR EACH ROW
-EXECUTE FUNCTION check_fever_for_joining();
+EXECUTE FUNCTION check_for_joining();
 
 -- Ensure a manager can only approve a booked meeting from the same department
 CREATE OR REPLACE FUNCTION check_approve_department()
@@ -433,9 +447,10 @@ EXECUTE FUNCTION check_approve_department();
 /* Ensure a booked meeting that has been approved cannot be updated (hence approved only once).
 Also ensures that an approval can only be made on future meetings.
 */
-CREATE OR REPLACE FUNCTION check_approve_count()
+CREATE OR REPLACE FUNCTION cannot_approve_anymore()
 RETURNS TRIGGER AS $$
 BEGIN 
+    RAISE NOTICE 'This meeting cannot be updated as it had already been approved.'
     RETURN NULL;
 END;
 $$ LANGUAGE plpgsql;
@@ -443,6 +458,6 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER approve_only_once
 BEFORE UPDATE ON Sessions
 FOR EACH ROW WHEN (OLD.approverId IS NOT NULL)
-EXECUTE FUNCTION check_approve_count();
+EXECUTE FUNCTION cannot_approve_anymore();
 
---
+
