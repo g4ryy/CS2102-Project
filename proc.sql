@@ -279,6 +279,9 @@ RETURN TABLE(floor_number INTEGER, room_number INTEGER, meeting_date DATE, start
     END;
 $$ LANGUAGE plpgsql;
 
+
+
+
 ------------------------------------- TRIGGERS ---------------------------------------------
 -- generates unique email for a new employee that has just been added.
 CREATE OR REPLACE FUNCTION generate_email()
@@ -294,91 +297,65 @@ CREATE TRIGGER new_employee_added
 AFTER INSERT ON Employees
 FOR EACH ROW EXECUTE FUNCTION generate_email();
 
--- ensure junior cannot be senior or manager
-CREATE OR REPLACE FUNCTION not_senior_manager()
-RETURNS TRIGGER AS 
-$$
-DECLARE
-    count_senior NUMERIC;
-    count_manager NUMERIC;
+-- ensure each employee is only of 1 type
+CREATE OR REPLACE FUNCTION check_type()
+RETURNS TRIGGER AS $$
 BEGIN
-    SELECT COUNT (*) INTO count_senior
-    FROM Seniors
-    WHERE Seniors.eid = NEW.eid;
-
-    SELECT COUNT(*) INTO count_manager
-    FROM Managers
-    WHERE Managers.eid = NEW.eid;
-
-    IF (count_senior > 0) OR (count_manager > 0) THEN
+    IF (EXISTS(SELECT 1 FROM Juniors J WHERE J.eid = NEW.eid)) THEN
+        RAISE EXCEPTION 'This employee is already a junior!';
         RETURN NULL;
-    ELSE
-        RETURN NEW;
+    ELSIF (EXISTS(SELECT 1 FROM Seniors S WHERE S.eid = NEW.eid)) THEN
+        RAISE EXCEPTION 'This employee is already a senior!';
+        RETURN NULL;
+    ELSEIF (EXISTS(SELECT 1 FROM Managers M WHERE M.eid = NEW.eid)) THEN
+        RAISE EXCEPTION 'This employee is already a manager!';
+        RETURN NULL;
     END IF;
+
+    RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER check_junior
+CREATE TRIGGER is_junior_only
 BEFORE INSERT OR UPDATE ON Juniors
 FOR EACH ROW 
-EXECUTE FUNCTION not_senior_manager();
-
--- ensure senior cannot be junior or manager
-CREATE OR REPLACE FUNCTION not_junior_manager()
-RETURNS TRIGGER AS 
-$$
-DECLARE
-    count_junior NUMERIC;
-    count_manager NUMERIC;
-BEGIN
-    SELECT COUNT (*) INTO count_junior
-    FROM Juniors
-    WHERE Juniors.eid = NEW.eid;
-
-    SELECT COUNT(*) INTO count_manager
-    FROM Managers
-    WHERE Managers.eid = NEW.eid;
-
-    IF (count_junior > 0) OR (count_manager > 0) THEN
-        RETURN NULL;
-    ELSE
-        RETURN NEW;
-    END IF;
-END;
-$$ LANGUAGE plpgsql;
+EXECUTE FUNCTION check_type();
 
 CREATE TRIGGER check_senior
 BEFORE INSERT OR UPDATE ON Seniors
 FOR EACH ROW 
-EXECUTE FUNCTION not_junior_manager();
-
--- ensure manager cannot be junior or senior
-CREATE OR REPLACE FUNCTION not_junior_senior()
-RETURNS TRIGGER AS $$
-DECLARE
-    count_junior NUMERIC;
-    count_senior NUMERIC;
-BEGIN
-    SELECT COUNT (*) INTO count_junior
-    FROM Juniors
-    WHERE Juniors.eid = NEW.eid;
-
-    SELECT COUNT(*) INTO count_senior
-    FROM Seniors
-    WHERE Seniors.eid = NEW.eid;
-
-    IF (count_junior > 0) OR (count_senior > 0) THEN
-        RETURN NULL;
-    ELSE
-        RETURN NEW;
-    END IF;
-END;
-$$ LANGUAGE plpgsql;
+EXECUTE FUNCTION check_type();
 
 CREATE TRIGGER check_manager
 BEFORE INSERT OR UPDATE ON Managers
 FOR EACH ROW 
-EXECUTE FUNCTION not_junior_senior();
+EXECUTE FUNCTION check_type();
+
+-- Ensure junior cannot be booker, and vice versa
+CREATE OR REPLACE FUNCTION prevent_junior_booker() 
+RETURNS TRIGGER AS $$ 
+BEGIN 
+    IF (EXISTS(SELECT 1 FROM Juniors J WHERE J.eid = NEW.eid)) THEN
+        RAISE EXCEPTION 'A booker cannot be a junior!';
+        RETURN NULL;
+    ELSIF (EXISTS(SELECT 1 FROM Bookers B WHERE B.eid = NEW.eid)) THEN
+        RAISE EXCEPTION 'A junior cannot be a booker!';
+        RETURN NULL;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER booker_cannot_be_junior
+BEFORE INSERT OR UPDATE ON Bookers
+FOR EACH ROW
+EXECUTE FUNCTION prevent_junior_booker();
+
+CREATE TRIGGER junior_cannot_be_booker
+BEFORE INSERT OR UPDATE ON Juniors
+FOR EACH ROW
+EXECUTE FUNCTION prevent_junior_booker();
 
 -- prevent booking if booker has fever
 CREATE OR REPLACE FUNCTION check_fever_for_booking()
@@ -413,7 +390,8 @@ DECLARE
 BEGIN
     SELECT fever INTO fever_status
     FROM HealthDeclarations
-    WHERE HealthDeclarations.eid = NEW.eid;
+    WHERE HealthDeclarations.eid = NEW.eid
+    AND HealthDeclarations.declareDate = NEW.sessionDate;
 
     IF fever_status = 't' THEN
         RAISE EXCEPTION 'Cannot join when having fever!';
@@ -429,3 +407,42 @@ BEFORE INSERT OR UPDATE ON Joins
 FOR EACH ROW
 EXECUTE FUNCTION check_fever_for_joining();
 
+-- Ensure a manager can only approve a booked meeting from the same department
+CREATE OR REPLACE FUNCTION check_approve_department()
+RETURNS TRIGGER AS $$
+DECLARE
+    room_dept INTEGER;
+    manager_dept INTEGER;
+BEGIN 
+    SELECT did INTO room_dept FROM MeetingRooms M where M.room = NEW.room AND M.floor = NEW.floor;
+    SELECT did INTO manager_dept FROM Employees E where E.eid = NEW.approverId;
+
+    IF (room_dept = manager_dept) THEN
+        RETURN NEW;
+    ELSE 
+        RAISE EXCEPTION 'Cannot approve meeting room that is not from the same department!';
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER approve_department_check
+BEFORE UPDATE ON Sessions
+FOR EACH ROW WHEN (OLD.approverId IS NULL)
+EXECUTE FUNCTION check_approve_department();
+
+/* Ensure a booked meeting that has been approved cannot be updated (hence approved only once).
+Also ensures that an approval can only be made on future meetings.
+*/
+CREATE OR REPLACE FUNCTION check_approve_count()
+RETURNS TRIGGER AS $$
+BEGIN 
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER approve_only_once
+BEFORE UPDATE ON Sessions
+FOR EACH ROW WHEN (OLD.approverId IS NOT NULL)
+EXECUTE FUNCTION check_approve_count();
+
+--
