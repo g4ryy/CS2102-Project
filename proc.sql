@@ -88,8 +88,8 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE PROCEDURE book_room(floor_num INT, room_num INT, booking_date DATE, start_hour INT, end_hour INT, eid INT) AS $$
     DECLARE temp INT := start_hour;
     BEGIN
-        IF EXISTS (SELECT 1 FROM search_room(0, booking_date, start_hour, end_hour) AS br
-            WHERE br.floor_number = floor_num AND br.room_number = room_num)
+        IF EXISTS (SELECT 1 FROM search_room(0, booking_date, start_hour, end_hour) AS SR
+            WHERE SR.floor_number = floor_num AND SR.room_number = room_num)
         THEN
             LOOP
                 EXIT WHEN temp >= end_hour;
@@ -302,13 +302,13 @@ CREATE OR REPLACE FUNCTION check_type()
 RETURNS TRIGGER AS $$
 BEGIN
     IF (EXISTS(SELECT 1 FROM Juniors J WHERE J.eid = NEW.eid)) THEN
-        RAISE EXCEPTION 'This employee is already a junior!';
+        RAISE NOTICE 'This employee is already a junior!';
         RETURN NULL;
     ELSIF (EXISTS(SELECT 1 FROM Seniors S WHERE S.eid = NEW.eid)) THEN
-        RAISE EXCEPTION 'This employee is already a senior!';
+        RAISE NOTICE 'This employee is already a senior!';
         RETURN NULL;
-    ELSEIF (EXISTS(SELECT 1 FROM Managers M WHERE M.eid = NEW.eid)) THEN
-        RAISE EXCEPTION 'This employee is already a manager!';
+    ELSIF (EXISTS(SELECT 1 FROM Managers M WHERE M.eid = NEW.eid)) THEN
+        RAISE NOTICE 'This employee is already a manager!';
         RETURN NULL;
     END IF;
 
@@ -336,10 +336,10 @@ CREATE OR REPLACE FUNCTION prevent_junior_booker()
 RETURNS TRIGGER AS $$ 
 BEGIN 
     IF (EXISTS(SELECT 1 FROM Juniors J WHERE J.eid = NEW.eid)) THEN
-        RAISE EXCEPTION 'A booker cannot be a junior!';
+        RAISE NOTICE 'A booker cannot be a junior!';
         RETURN NULL;
     ELSIF (EXISTS(SELECT 1 FROM Bookers B WHERE B.eid = NEW.eid)) THEN
-        RAISE EXCEPTION 'A junior cannot be a booker!';
+        RAISE NOTICE 'A junior cannot be a booker!';
         RETURN NULL;
     END IF;
 
@@ -366,7 +366,7 @@ DECLARE
     fever_status BOOLEAN;
 BEGIN
     IF NEW.sessionDate > (SELECT resignedDate FROM Employees E WHERE E.eid = NEW.bookerId) THEN
-        RAISE EXCEPTION 'Booker already resigned!';
+        RAISE NOTICE 'Booker already resigned!';
         RETURN NULL;
     END IF;
 
@@ -376,7 +376,7 @@ BEGIN
     AND HealthDeclarations.declareDate = NEW.sessionDate;
 
     IF fever_status = 't' THEN
-        RAISE EXCEPTION 'Cannot book when having fever!';
+        RAISE NOTICE 'Cannot book when having fever!';
         RETURN NULL;
     ELSE
         RETURN NEW;
@@ -389,6 +389,51 @@ BEFORE INSERT OR UPDATE ON Sessions
 FOR EACH ROW
 EXECUTE FUNCTION check_for_booking();
 
+-- Ensure a manager can only approve a booked meeting from the same department
+CREATE OR REPLACE FUNCTION check_approve_department()
+RETURNS TRIGGER AS $$
+DECLARE
+    room_dept INTEGER;
+    manager_dept INTEGER;
+BEGIN 
+    IF NEW.sessionDate > (SELECT resignedDate FROM Employees E WHERE E.eid = NEW.approverId) THEN
+        RAISE NOTICE 'Manager already resigned, not allowed to approve anymore!';
+        RETURN NULL;
+    END IF;
+
+    SELECT did INTO room_dept FROM MeetingRooms M where M.room = NEW.room AND M.floor = NEW.floor;
+    SELECT did INTO manager_dept FROM Employees E where E.eid = NEW.approverId;
+
+    IF (room_dept = manager_dept) THEN
+        RETURN NEW;
+    ELSE 
+        RAISE NOTICE 'Cannot approve meeting room that is not from the same department!';
+        RETURN NULL;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER approve_check
+BEFORE UPDATE ON Sessions
+FOR EACH ROW WHEN (OLD.approverId IS NULL)
+EXECUTE FUNCTION check_approve_department();
+
+/* Ensure a booked meeting that has been approved cannot be updated (hence approved only once).
+Also ensures that an approval can only be made on future meetings.
+*/
+CREATE OR REPLACE FUNCTION cannot_approve_anymore()
+RETURNS TRIGGER AS $$
+BEGIN 
+    RAISE NOTICE 'This meeting cannot be updated as it had already been approved.';
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER approve_only_once
+BEFORE UPDATE ON Sessions
+FOR EACH ROW WHEN (OLD.approverId IS NOT NULL)
+EXECUTE FUNCTION cannot_approve_anymore();
+
 /**prevent joining if :
 1. employee has resigned or 
 2. employee has fever **/
@@ -398,7 +443,7 @@ DECLARE
     fever_status BOOLEAN;
 BEGIN
     IF NEW.sessionDate > (SELECT resignedDate FROM Employees E WHERE E.eid = NEW.eid) THEN
-        RAISE EXCEPTION 'Employee already resigned!';
+        RAISE NOTICE 'Employee already resigned!';
         RETURN NULL;
     END IF;
 
@@ -408,7 +453,7 @@ BEGIN
     AND HealthDeclarations.declareDate = NEW.sessionDate;
 
     IF fever_status = 't' THEN
-        RAISE EXCEPTION 'Cannot join when having fever!';
+        RAISE NOTICE 'Cannot join when having fever!';
         RETURN NULL;
     ELSE
         RETURN NEW;
@@ -420,44 +465,4 @@ CREATE TRIGGER prevent_join_if_resigned_or_fever
 BEFORE INSERT OR UPDATE ON Joins
 FOR EACH ROW
 EXECUTE FUNCTION check_for_joining();
-
--- Ensure a manager can only approve a booked meeting from the same department
-CREATE OR REPLACE FUNCTION check_approve_department()
-RETURNS TRIGGER AS $$
-DECLARE
-    room_dept INTEGER;
-    manager_dept INTEGER;
-BEGIN 
-    SELECT did INTO room_dept FROM MeetingRooms M where M.room = NEW.room AND M.floor = NEW.floor;
-    SELECT did INTO manager_dept FROM Employees E where E.eid = NEW.approverId;
-
-    IF (room_dept = manager_dept) THEN
-        RETURN NEW;
-    ELSE 
-        RAISE EXCEPTION 'Cannot approve meeting room that is not from the same department!';
-    END IF;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER approve_department_check
-BEFORE UPDATE ON Sessions
-FOR EACH ROW WHEN (OLD.approverId IS NULL)
-EXECUTE FUNCTION check_approve_department();
-
-/* Ensure a booked meeting that has been approved cannot be updated (hence approved only once).
-Also ensures that an approval can only be made on future meetings.
-*/
-CREATE OR REPLACE FUNCTION cannot_approve_anymore()
-RETURNS TRIGGER AS $$
-BEGIN 
-    RAISE NOTICE 'This meeting cannot be updated as it had already been approved.'
-    RETURN NULL;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER approve_only_once
-BEFORE UPDATE ON Sessions
-FOR EACH ROW WHEN (OLD.approverId IS NOT NULL)
-EXECUTE FUNCTION cannot_approve_anymore();
-
 
