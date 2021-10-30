@@ -85,7 +85,7 @@ RETURN QUERY
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE PROCEDURE book_room(floor_num INT, room_num INT, booking_date DATE, start_hour INT, end_hour INT, eid INT) AS $$
+CREATE OR REPLACE PROCEDURE book_room(floor_num INT, room_num INT, booking_date DATE, start_hour INT, end_hour INT, eid_input INT) AS $$
     DECLARE temp INT := start_hour;
     BEGIN
         IF EXISTS (SELECT 1 FROM search_room(0, booking_date, start_hour, end_hour) AS SR
@@ -94,7 +94,9 @@ CREATE OR REPLACE PROCEDURE book_room(floor_num INT, room_num INT, booking_date 
             LOOP
                 EXIT WHEN temp >= end_hour;
                 INSERT INTO Sessions(sessionDate, sessionTime, room, floor, bookerId)
-                VALUES (booking_date, temp, room_num, floor_num, eid);
+                VALUES (booking_date, temp, room_num, floor_num, eid_input);
+                INSERT INTO Joins(sessionDate, sessionTime, room, floor, eid)
+                VALUES (booking_date, temp, room_num, floor_num, eid_input); -- made a change here where booker joins his own meeting
                 temp := temp + 1;
             END LOOP;
         END IF;
@@ -122,6 +124,17 @@ AS $$
 END;
 $$ LANGUAGE plpgsql;
 
+CREATE OR REPLACE FUNCTION find_room_capacity(meeting_date DATE, floor_num INTEGER,room_num INTEGER)
+RETURNS INTEGER AS $$
+    SELECT new_cap
+    FROM Updates
+    WHERE room = room_num
+    AND floor = floor_num
+    AND meeting_date >= update_date
+    ORDER BY update_date DESC
+    LIMIT 1;
+$$ LANGUAGE sql;
+
 CREATE OR REPLACE PROCEDURE join_meeting(floor_num INTEGER,
     room_num INTEGER,
     meeting_date DATE,
@@ -129,17 +142,31 @@ CREATE OR REPLACE PROCEDURE join_meeting(floor_num INTEGER,
     end_hour INTEGER,
     eid_input BIGINT)
 AS $$
-DECLARE num_sessions INTEGER := ceil(end_hour/100 - start_hour/100);
-        counter INTEGER := 1;
-        meeting_slot INTEGER := start_hour;
+DECLARE meeting_slot INTEGER := start_hour;
         approval_indicator BIGINT;
+        current_num_ppl INTEGER;
+        room_cap INTEGER;
 BEGIN
     SELECT approverId FROM Sessions WHERE sessionTime = start_hour
         AND sessionDate = meeting_date
         AND room = room_num
         AND floor = floor_num INTO approval_indicator;
-    IF approval_indicator IS NULL THEN
-        WHILE counter <= num_sessions LOOP
+    SELECT COUNT(*) FROM Joins WHERE eid = eid_input
+    AND sessionDate = meeting_date
+    AND sessionTime = start_hour
+    AND room = room_num
+    AND floor = floor_num INTO current_num_ppl;
+    SELECT * 
+    FROM find_room_capacity(meeting_date, floor_num, room_num) INTO room_cap;
+    IF approval_indicator IS NULL AND current_num_ppl < room_cap
+    AND NOT EXISTS (SELECT 1
+                    FROM Joins
+                    WHERE sessionDate = meeting_date
+                    AND sessionTime >= start_hour
+                    AND sessionTime < end_hour
+                    AND eid = eid_input)
+    THEN
+        WHILE meeting_slot < end_hour LOOP
             INSERT INTO Joins(eid,
             sessionDate,
             sessionTime,
@@ -149,7 +176,7 @@ BEGIN
             meeting_slot,
             room_num,
             floor_num);
-            meeting_slot := meeting_slot + counter*100;
+            meeting_slot := meeting_slot + 1;
         END LOOP;
     END IF;
 END;
@@ -162,24 +189,28 @@ CREATE OR REPLACE PROCEDURE leave_meeting(floor_num INTEGER,
     end_hour INTEGER,
     eid_input BIGINT)
 AS $$
-DECLARE num_sessions INTEGER := ceil(end_hour/100 - start_hour/100);
-    counter INTEGER:= 1;
-    meeting_slot INTEGER:= start_hour;
-    approval_indicator BIGINT;
+DECLARE meeting_slot INTEGER:= start_hour;
+        approval_indicator BIGINT;
 BEGIN
     SELECT approverId FROM Sessions WHERE sessionTime = start_hour
         AND sessionDate = meeting_date
         AND room = room_num
         AND floor = floor_num INTO approval_indicator;
-    IF approval_indicator IS NULL THEN
-        WHILE counter <= num_sessions LOOP
+    IF approval_indicator IS NULL AND EXISTS (SELECT 1 
+                                              FROM Joins
+                                              WHERE  sessionTime = start_hour
+                                              AND sessionDate = meeting_date
+                                              AND room = room_num
+                                              AND floor = floor_num
+                                              AND eid = eid_input) THEN
+        WHILE meeting_slot < end_hour LOOP
             DELETE FROM Joins 
             WHERE sessionTime = meeting_slot
             AND eid = eid_input
             AND sessionDate = meeting_date
             AND room = room_num
             AND floor = floor_num;
-            meeting_slot := meeting_slot + counter*100;
+            meeting_slot := meeting_slot + 1;
         END LOOP;
     END IF;
 END;
@@ -192,20 +223,25 @@ CREATE OR REPLACE PROCEDURE approve_meeting(floor_num INTEGER,
     end_hour INTEGER,
     eid_input BIGINT)
 AS $$
-DECLARE num_sessions INTEGER := ceil(end_hour/100 - start_hour/100);
-    counter INTEGER:= 1;
-    meeting_slot := start_hour;
+DECLARE meeting_slot INTEGER := start_hour;
+        approval_indicator BIGINT;
 BEGIN
-    WHILE counter <= num_sessions LOOP
-        UPDATE Sessions
-        SET approverId = eid_input
-        WHERE sessionTime = meeting_slot
+    SELECT approverId FROM Sessions WHERE sessionTime = start_hour
         AND sessionDate = meeting_date
         AND room = room_num
-        AND floor = floor_num;
-        meeting_slot := meeting_slot + counter*100;
-    END LOOP;
-END;
+        AND floor = floor_num INTO approval_indicator;
+    IF approval_indicator IS NULL THEN
+        WHILE meeting_slot < end_hour LOOP
+            UPDATE Sessions
+            SET approverId = eid_input
+            WHERE sessionTime = meeting_slot
+            AND sessionDate = meeting_date
+            AND room = room_num
+            AND floor = floor_num;
+            meeting_slot := meeting_slot + 1;
+        END LOOP;
+    END IF;
+END
 $$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE PROCEDURE declare_health(id BIGINT, curr_date DATE, curr_temp NUMERIC) AS $$
