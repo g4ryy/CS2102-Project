@@ -447,7 +447,7 @@ BEGIN
         RETURN NULL;
     END IF;
 
-    IF EXISTS (SELECT 1 FROM Joins J WHERE J.eid = NEW.bookerId AND J.sessionDate = NEW.sessionDate AND J.sessionTime = NEW,sessionTime) THEN
+    IF EXISTS (SELECT 1 FROM Joins J WHERE J.eid = NEW.bookerId AND J.sessionDate = NEW.sessionDate AND J.sessionTime = NEW.sessionTime) THEN
         RAISE NOTICE 'Unable to book, there is conflict with another meeting!';
         RETURN NULL;
     END IF;
