@@ -315,8 +315,21 @@ RETURN TABLE(floor_number INTEGER, room_number INTEGER, meeting_date DATE, start
     END;
 $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION view_future_meeting(start_date DATE, eid BIGINT) 
-RETURN 
+CREATE OR REPLACE FUNCTION view_future_meeting(start_date DATE, start_hour INTEGER, eid_input BIGINT)  
+RETURN TABLE(floor_number INTEGER, room_number INTEGER, meeting_date DATE, start_hour INTEGER) AS $$
+    BEGIN
+        IF (start_date < CURRENT_DATE OR (start_date = CURRENT_DATE AND start_hour <= EXTRACT(HOUR FROM NOW()))) THEN
+            RAISE NOTICE 'start_date and start_hour must be in the future!';
+            RETURN;
+        END IF;
+
+        RETURN QUERY
+        SELECT floor, room, sessionDate, sessionTime 
+        FROM Joins J
+        WHERE J.eid = eid_input AND ((J.sessionDate > start_date) OR (J.sessionDate = start_date AND J.sessionTime >= start_hour));
+    END;
+$$ LANGUAGE plpgsql;
+
 
 
 ------------------------------------- TRIGGERS ---------------------------------------------
@@ -397,7 +410,7 @@ EXECUTE FUNCTION prevent_junior_booker();
 /**prevent booking if :
 1. booker has resigned or
 2. booker has fever 
-3. booker does not have another meeting in the same timeslot**/
+3. booker already has another meeting in the same timeslot**/
 CREATE OR REPLACE FUNCTION check_for_booking()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -469,15 +482,10 @@ BEFORE UPDATE ON Sessions
 FOR EACH ROW WHEN ((OLD.approverId IS NULL) AND (NEW.approverId IS NOT NULL))
 EXECUTE FUNCTION check_approve();
 
-/** Ensure that once a booked meeting is approved, its sessionDate, sessionTime, room, floor and bookerId cannot be changed anymore.
-approverId can only be changed to null in the event that the approver decides to unapprove the meeting (contact tracing)
-
-**/
+-- Ensure that a booked meeting is only approved once and all other attributes cannot be updated once approved.
 CREATE OR REPLACE FUNCTION cannot_approve_anymore()
 RETURNS TRIGGER AS $$
 BEGIN
-    NEW.sessionDate = OLD.sessionDate; -- ensure date cannot changed anymore 
-    NEW.sessionTime = NULL;
     RAISE NOTICE 'This meeting cannot be updated as it had already been approved.';
     RETURN NULL;
 END;
@@ -485,7 +493,7 @@ $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER approve_only_once
 BEFORE UPDATE ON Sessions
-FOR EACH ROW WHEN (OLD.approverId IS NOT NULL)
+FOR EACH ROW WHEN (OLD.approverId IS NOT NULL AND NEW.approverId IS NOT NULL)
 EXECUTE FUNCTION cannot_approve_anymore();
 
 /**prevent joining if :
