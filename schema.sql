@@ -89,5 +89,5 @@ CREATE TABLE Updates (
     room INTEGER,
     PRIMARY KEY (update_date, floor, room),
     FOREIGN KEY (floor, room) REFERENCES MeetingRooms(floor, room) ON DELETE CASCADE ON UPDATE CASCADE
-)
+);
 
