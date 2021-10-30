@@ -53,7 +53,7 @@ CREATE TABLE MeetingRooms (
     rname TEXT,
     did INTEGER NOT NULL,
     PRIMARY KEY (floor, room),
-    FOREIGN KEY (did) REFERENCES Departments(did) ON UPDATE CASCADE
+    FOREIGN KEY (did) REFERENCES Departments(did) ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 CREATE TABLE Sessions (
@@ -65,8 +65,8 @@ CREATE TABLE Sessions (
     approverId BIGINT,
     PRIMARY KEY (sessionDate, sessionTime, room, floor),
     FOREIGN KEY (room, floor) REFERENCES MeetingRooms(room, floor) ON DELETE CASCADE ON UPDATE CASCADE,
-    FOREIGN KEY (bookerId) REFERENCES Bookers(eid),
-    FOREIGN KEY (approverId) REFERENCES Managers(eid),
+    FOREIGN KEY (bookerId) REFERENCES Bookers(eid) ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (approverId) REFERENCES Managers(eid) ON DELETE CASCADE ON UPDATE CASCADE,
     CHECK ((sessionTime >= 0) AND (sessionTime < 24)),
     CHECK ((sessionDate > CURRENT_DATE) OR ((sessionDate = CURRENT_DATE) AND sessionTime > EXTRACT(HOUR FROM NOW())))
 );
@@ -78,7 +78,7 @@ CREATE TABLE Joins (
     room INTEGER, 
     floor INTEGER,
     PRIMARY KEY (eid, sessionDate, sessionTime, room, floor),
-    FOREIGN KEY (eid) REFERENCES Employees(eid),
+    FOREIGN KEY (eid) REFERENCES Employees(eid) ON DELETE CASCADE ON UPDATE CASCADE,
     FOREIGN KEY (sessionDate, sessionTime, room, floor) REFERENCES Sessions(sessionDate, sessionTime, room, floor) ON DELETE CASCADE ON UPDATE CASCADE
 );
 
