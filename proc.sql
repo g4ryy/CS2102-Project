@@ -334,10 +334,25 @@ RETURN TABLE(floor_number INTEGER, room_number INTEGER, meeting_date DATE, start
 $$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION view_manager_report(start_date DATE, eid_input BIGINT)
+RETURN TABLE(floor_number INTEGER, room_number INTEGER, meeting_date DATE, start_hour INTEGER, eid BIGINT) 
+    DECLARE
+        manager_did INTEGER;
+    BEGIN
+        IF (NOT EXISTS(SELECT 1 FROM Managers M WHERE M.eid = eid_input)) THEN
+            RETURN;
+        END IF;
 
+        SELECT did INTO manager_did FROM Employees E WHERE E.eid = eid_input;
 
-
-
+        SELECT S.floor, S.room, S.sessionDate, S.sessionTime, eid_input
+        FROM Sessions S NATURAL JOIN MeetingRooms M 
+        WHERE M.did = manager_did 
+                AND S.approverId IS NULL
+                AND S.sessionDate >= start_date
+        ORDER BY S.sessionDate, S.sessionTime;
+    END;
+$$ LANGUAGE plpgsql;
+        
 ------------------------------------- TRIGGERS ---------------------------------------------
 -- generates unique email for a new employee that has just been added.
 CREATE OR REPLACE FUNCTION generate_email()
