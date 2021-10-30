@@ -44,6 +44,9 @@ CREATE OR REPLACE PROCEDURE add_employee(ename_input TEXT, department_name TEXT,
             INSERT INTO Managers(eid) VALUES(variable_id);
         ELSE INSERT INTO Juniors(eid) VALUES(variable_id);
         END IF;
+
+        UPDATE Employees 
+        SET email = LOWER(REPLACE(SELECT ename FROM Employees E WHERE E.eid = variable_id, ' ', ''))  || variable_id.eid::TEXT || '@company.com' WHERE Employees.eid = variable_id;
     END;
 $$ LANGUAGE plpgsql;
 
@@ -339,29 +342,36 @@ RETURN TABLE(floor_number INTEGER, room_number INTEGER, meeting_date DATE, start
         END IF;
 
         RETURN QUERY
-        SELECT floor, room, sessionDate, sessionTime 
-        FROM Joins J
-        WHERE J.eid = eid_input AND ((J.sessionDate > start_date) OR (J.sessionDate = start_date AND J.sessionTime >= start_hour));
+        SELECT J.floor, J.room, J.sessionDate, J.sessionTime 
+        FROM Joins J NATURAL JOIN Sessions S
+        WHERE J.eid = eid_input 
+                AND ((J.sessionDate > start_date) OR (J.sessionDate = start_date AND J.sessionTime >= start_hour))
+                AND S.approverId IS NOT NULL
+        ORDER BY J.sessionDate, J.sessionTime;
     END;
 $$ LANGUAGE plpgsql;
 
+CREATE OR REPLACE FUNCTION view_manager_report(start_date DATE, eid_input BIGINT)
+RETURN TABLE(floor_number INTEGER, room_number INTEGER, meeting_date DATE, start_hour INTEGER, eid BIGINT) 
+    DECLARE
+        manager_did INTEGER;
+    BEGIN
+        IF (NOT EXISTS(SELECT 1 FROM Managers M WHERE M.eid = eid_input)) THEN
+            RETURN;
+        END IF;
 
+        SELECT did INTO manager_did FROM Employees E WHERE E.eid = eid_input;
 
+        SELECT S.floor, S.room, S.sessionDate, S.sessionTime, eid_input
+        FROM Sessions S NATURAL JOIN MeetingRooms M 
+        WHERE M.did = manager_did 
+                AND S.approverId IS NULL
+                AND S.sessionDate >= start_date
+        ORDER BY S.sessionDate, S.sessionTime;
+    END;
+$$ LANGUAGE plpgsql;
+        
 ------------------------------------- TRIGGERS ---------------------------------------------
--- generates unique email for a new employee that has just been added.
-CREATE OR REPLACE FUNCTION generate_email()
-RETURNS TRIGGER AS $$
-BEGIN
-    UPDATE Employees 
-    SET email = LOWER(REPLACE(NEW.ename, ' ', ''))  || NEW.eid::TEXT || '@company.com' WHERE Employees.eid = NEW.eid;
-    RETURN NULL;
-END;
-$$ LANGUAGE plpgsql; 
-
-CREATE TRIGGER new_employee_added 
-AFTER INSERT ON Employees
-FOR EACH ROW EXECUTE FUNCTION generate_email();
-
 -- ensure each employee is only of 1 type
 CREATE OR REPLACE FUNCTION check_type()
 RETURNS TRIGGER AS $$
