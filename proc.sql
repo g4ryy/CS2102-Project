@@ -263,7 +263,7 @@ RETURNS TABLE(close_contacts_id BIGINT) AS $$ --assume that health declaration i
     BEGIN
         SELECT fever FROM HealthDeclarations WHERE eid = id ORDER BY declareDate DESC LIMIT 1 INTO curr_fever;
         SELECT declareDate FROM HealthDeclarations WHERE eid = id ORDER BY declareDate DESC LIMIT 1 INTO curr_date;
-        IF TRUE THEN
+        IF fever THEN
             DELETE FROM Joins WHERE eid = id AND sessionDate > curr_date; --delete employee from future meetings
             DELETE FROM Sessions WHERE bookerID = id AND sessionDate > curr_date;  --delete sessions booked by the employee /auto deletes sessions in joins
 
