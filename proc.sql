@@ -324,9 +324,11 @@ RETURN TABLE(floor_number INTEGER, room_number INTEGER, meeting_date DATE, start
         END IF;
 
         RETURN QUERY
-        SELECT floor, room, sessionDate, sessionTime 
-        FROM Joins J
-        WHERE J.eid = eid_input AND ((J.sessionDate > start_date) OR (J.sessionDate = start_date AND J.sessionTime >= start_hour));
+        SELECT J.floor, J.room, J.sessionDate, J.sessionTime 
+        FROM Joins J NATURAL JOIN Sessions S
+        WHERE J.eid = eid_input 
+                AND ((J.sessionDate > start_date) OR (J.sessionDate = start_date AND J.sessionTime >= start_hour))
+                AND S.approverId IS NOT NULL;
     END;
 $$ LANGUAGE plpgsql;
 
