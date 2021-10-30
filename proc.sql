@@ -308,14 +308,15 @@ CREATE OR REPLACE FUNCTION view_booking_report(start_date DATE, eid BIGINT)
 RETURN TABLE(floor_number INTEGER, room_number INTEGER, meeting_date DATE, start_hour INTEGER, is_approved BOOLEAN) AS $$
     BEGIN
         RETURN QUERY
-        SELECT floor, room, sessionDate, sessionTime, approverID IS NULL
+        SELECT floor, room, sessionDate, sessionTime, approverID IS NOT NULL
         FROM Sessions
         WHERE sessionDate >= start_date AND bookerID = eid
         ORDER BY sessionDate, sessionTime;
     END;
 $$ LANGUAGE plpgsql;
 
-
+CREATE OR REPLACE FUNCTION view_future_meeting(start_date DATE, eid BIGINT) 
+RETURN 
 
 
 ------------------------------------- TRIGGERS ---------------------------------------------
@@ -395,7 +396,8 @@ EXECUTE FUNCTION prevent_junior_booker();
 
 /**prevent booking if :
 1. booker has resigned or
-2. booker has fever **/
+2. booker has fever 
+3. booker does not have another meeting in the same timeslot**/
 CREATE OR REPLACE FUNCTION check_for_booking()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -403,6 +405,11 @@ DECLARE
 BEGIN
     IF NEW.sessionDate > (SELECT resignedDate FROM Employees E WHERE E.eid = NEW.bookerId) THEN
         RAISE NOTICE 'Booker already resigned!';
+        RETURN NULL;
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM Joins J WHERE J.eid = NEW.bookerId AND J.sessionDate = NEW.sessionDate AND J.sessionTime = NEW,sessionTime) THEN
+        RAISE NOTICE 'Unable to book, there is conflict with another meeting!';
         RETURN NULL;
     END IF;
 
@@ -420,28 +427,36 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER prevent_book_if_resigned_or_fever
+CREATE TRIGGER before_book_check
 BEFORE INSERT OR UPDATE ON Sessions
 FOR EACH ROW
 EXECUTE FUNCTION check_for_booking();
 
--- Ensure a manager can only approve a booked meeting from the same department
-CREATE OR REPLACE FUNCTION check_approve_department()
+/* Ensure a manager can only approve a booked meeting from the same department provided that they have not resigned,
+Also ensures that an approval can only be made on future meetings. */
+CREATE OR REPLACE FUNCTION check_approve()
 RETURNS TRIGGER AS $$
 DECLARE
     room_dept INTEGER;
     manager_dept INTEGER;
 BEGIN 
-    IF NEW.sessionDate > (SELECT resignedDate FROM Employees E WHERE E.eid = NEW.approverId) THEN
+    OLD.approverId = NEW.approverId; -- Ensure that only approverId is updated, and not other attributes
+    IF OLD.sessionDate > (SELECT resignedDate FROM Employees E WHERE E.eid = NEW.approverId) THEN
         RAISE NOTICE 'Manager already resigned, not allowed to approve anymore!';
         RETURN NULL;
     END IF;
 
-    SELECT did INTO room_dept FROM MeetingRooms M where M.room = NEW.room AND M.floor = NEW.floor;
+    IF ((OLD.sessionDate < CURRENT_DATE) OR 
+            ((OLD.sessionDate = CURRENT_DATE) AND OLD.sessionTime <= EXTRACT(HOUR FROM NOW()))) THEN
+        RAISE NOTICE 'Can only approve future meetings!';
+        RETURN NULL;
+    END IF;
+
+    SELECT did INTO room_dept FROM MeetingRooms M where M.room = OLD.room AND M.floor = OLD.floor;
     SELECT did INTO manager_dept FROM Employees E where E.eid = NEW.approverId;
 
     IF (room_dept = manager_dept) THEN
-        RETURN NEW;
+        RETURN OLD;
     ELSE 
         RAISE NOTICE 'Cannot approve meeting room that is not from the same department!';
         RETURN NULL;
@@ -449,17 +464,20 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER approve_check
+CREATE TRIGGER before_approve_check
 BEFORE UPDATE ON Sessions
-FOR EACH ROW WHEN (OLD.approverId IS NULL)
-EXECUTE FUNCTION check_approve_department();
+FOR EACH ROW WHEN ((OLD.approverId IS NULL) AND (NEW.approverId IS NOT NULL))
+EXECUTE FUNCTION check_approve();
 
-/* Ensure a booked meeting that has been approved cannot be updated (hence approved only once).
-Also ensures that an approval can only be made on future meetings.
-*/
+/** Ensure that once a booked meeting is approved, its sessionDate, sessionTime, room, floor and bookerId cannot be changed anymore.
+approverId can only be changed to null in the event that the approver decides to unapprove the meeting (contact tracing)
+
+**/
 CREATE OR REPLACE FUNCTION cannot_approve_anymore()
 RETURNS TRIGGER AS $$
-BEGIN 
+BEGIN
+    NEW.sessionDate = OLD.sessionDate; -- ensure date cannot changed anymore 
+    NEW.sessionTime = NULL;
     RAISE NOTICE 'This meeting cannot be updated as it had already been approved.';
     RETURN NULL;
 END;
@@ -472,7 +490,9 @@ EXECUTE FUNCTION cannot_approve_anymore();
 
 /**prevent joining if :
 1. employee has resigned or 
-2. employee has fever **/
+2. employee has fever or
+3. employee has another meeting at that date and time OR 
+4. Meeting had already been approved **//
 CREATE OR REPLACE FUNCTION check_for_joining()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -482,6 +502,17 @@ BEGIN
         RAISE NOTICE 'Employee already resigned!';
         RETURN NULL;
     END IF;
+
+    IF EXISTS (SELECT 1 FROM Joins J WHERE J.eid = NEW.eid AND J.sessionDate = NEW.sessionDate AND J.sessionTime = NEW.sessionTime) THEN
+        RAISE NOTICE 'There is a conflict with another meeting!';
+        RETURN NULL;
+    END IF;
+
+    IF ((SELECT approverId FROM Sessions S WHERE S.sessionDate = NEW.sessionDate 
+            AND S.sessionTime = NEW.sessionTime AND S.room = NEW.room AND S.floor = NEW.floor) IS NOT NULL) THEN
+        RAISE NOTICE 'Meeting had already been approved, cannot join anymore!';
+        RETURN NULL;
+    END IF; 
 
     SELECT fever INTO fever_status
     FROM HealthDeclarations
