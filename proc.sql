@@ -566,3 +566,9 @@ BEFORE INSERT OR UPDATE ON Joins
 FOR EACH ROW
 EXECUTE FUNCTION check_for_joining();
 
+CREATE TRIGGER activate_contact_tracing
+AFTER INSERT ON HealthDeclarations
+FOR EACH ROW
+EXECUTE FUNCTION contact_tracing(NEW.eid);
+
+
