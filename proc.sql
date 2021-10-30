@@ -98,10 +98,9 @@ CREATE OR REPLACE PROCEDURE book_room(floor_num INT, room_num INT, booking_date 
                 EXIT WHEN temp >= end_hour;
                 INSERT INTO Sessions(sessionDate, sessionTime, room, floor, bookerId)
                 VALUES (booking_date, temp, room_num, floor_num, eid_input);
-                INSERT INTO Joins(sessionDate, sessionTime, room, floor, eid)
-                VALUES (booking_date, temp, room_num, floor_num, eid_input); -- made a change here where booker joins his own meeting
                 temp := temp + 1;
             END LOOP;
+            CALL join_meeting(floor_num, room_num, booking_date, start_hour, end_hour, eid_input);
         END IF;
 END;
 $$ LANGUAGE plpgsql;
@@ -138,6 +137,14 @@ RETURNS INTEGER AS $$
     LIMIT 1;
 $$ LANGUAGE sql;
 
+CREATE OR REPLACE FUNCTION check_approval(meeting_date DATE, meeting_time INTEGER, floor_num INTEGER,room_num INTEGER)
+RETURNS BIGINT AS $$
+    SELECT approverId FROM Sessions WHERE sessionTime = meeting_time
+        AND sessionDate = meeting_date
+        AND room = room_num
+        AND floor = floor_num;
+$$ LANGUAGE sql;
+
 CREATE OR REPLACE PROCEDURE join_meeting(floor_num INTEGER,
     room_num INTEGER,
     meeting_date DATE,
@@ -150,26 +157,21 @@ DECLARE meeting_slot INTEGER := start_hour;
         current_num_ppl INTEGER;
         room_cap INTEGER;
 BEGIN
-    SELECT approverId FROM Sessions WHERE sessionTime = start_hour
-        AND sessionDate = meeting_date
-        AND room = room_num
-        AND floor = floor_num INTO approval_indicator;
-    SELECT COUNT(*) FROM Joins WHERE eid = eid_input
-    AND sessionDate = meeting_date
-    AND sessionTime = start_hour
-    AND room = room_num
-    AND floor = floor_num INTO current_num_ppl;
-    SELECT * 
-    FROM find_room_capacity(meeting_date, floor_num, room_num) INTO room_cap;
-    IF approval_indicator IS NULL AND current_num_ppl < room_cap
-    AND NOT EXISTS (SELECT 1
-                    FROM Joins
-                    WHERE sessionDate = meeting_date
-                    AND sessionTime >= start_hour
-                    AND sessionTime < end_hour
-                    AND eid = eid_input)
-    THEN
-        WHILE meeting_slot < end_hour LOOP
+    SELECT * FROM find_room_capacity(meeting_date, floor_num, room_num) INTO room_cap;
+    WHILE meeting_slot < end_hour LOOP
+        SELECT COUNT(*) FROM Joins WHERE sessionDate = meeting_date
+            AND sessionTime = start_hour
+            AND room = room_num
+            AND floor = floor_num INTO current_num_ppl;
+        SELECT * FROM check_approval(meeting_date, meeting_slot, floor_num, room_num) INTO approval_indicator;
+        IF approval_indicator IS NULL 
+            AND current_num_ppl < room_cap
+            AND NOT EXISTS (SELECT 1
+                            FROM Joins
+                            WHERE sessionDate = meeting_date
+                            AND sessionTime = meeting_slot
+                            AND eid = eid_input)
+        THEN
             INSERT INTO Joins(eid,
             sessionDate,
             sessionTime,
@@ -179,9 +181,9 @@ BEGIN
             meeting_slot,
             room_num,
             floor_num);
-            meeting_slot := meeting_slot + 1;
-        END LOOP;
-    END IF;
+        END IF;
+        meeting_slot := meeting_slot + 1;
+    END LOOP;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -195,27 +197,30 @@ AS $$
 DECLARE meeting_slot INTEGER:= start_hour;
         approval_indicator BIGINT;
 BEGIN
-    SELECT approverId FROM Sessions WHERE sessionTime = start_hour
-        AND sessionDate = meeting_date
-        AND room = room_num
-        AND floor = floor_num INTO approval_indicator;
-    IF approval_indicator IS NULL AND EXISTS (SELECT 1 
-                                              FROM Joins
-                                              WHERE  sessionTime = start_hour
-                                              AND sessionDate = meeting_date
-                                              AND room = room_num
-                                              AND floor = floor_num
-                                              AND eid = eid_input) THEN
-        WHILE meeting_slot < end_hour LOOP
+    WHILE meeting_slot < end_hour LOOP
+        SELECT * FROM check_approval(meeting_date, meeting_slot, floor_num, room_num) INTO approval_indicator;
+        IF approval_indicator IS NULL AND EXISTS (SELECT 1 
+                                                  FROM Joins
+                                                  WHERE  sessionTime = meeting_slot
+                                                  AND sessionDate = meeting_date
+                                                  AND room = room_num
+                                                  AND floor = floor_num
+                                                  AND eid = eid_input) THEN
+            DELETE FROM Sessions 
+            WHERE sessionTime = meeting_slot 
+            AND bookerID = eid_input 
+            AND sessionDate = meeting_date
+            AND room = room_num
+            AND floor = floor_num;
             DELETE FROM Joins 
             WHERE sessionTime = meeting_slot
             AND eid = eid_input
             AND sessionDate = meeting_date
             AND room = room_num
             AND floor = floor_num;
-            meeting_slot := meeting_slot + 1;
-        END LOOP;
-    END IF;
+        END IF;
+        meeting_slot := meeting_slot + 1;
+    END LOOP;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -229,24 +234,20 @@ AS $$
 DECLARE meeting_slot INTEGER := start_hour;
         approval_indicator BIGINT;
 BEGIN
-    SELECT approverId FROM Sessions WHERE sessionTime = start_hour
-        AND sessionDate = meeting_date
-        AND room = room_num
-        AND floor = floor_num INTO approval_indicator;
-    IF approval_indicator IS NULL THEN
-        WHILE meeting_slot < end_hour LOOP
+    WHILE meeting_slot < end_hour LOOP
+        SELECT * FROM check_approval(meeting_date, meeting_slot, floor_num, room_num) INTO approval_indicator;
+        IF approval_indicator IS NULL THEN
             UPDATE Sessions
             SET approverId = eid_input
             WHERE sessionTime = meeting_slot
             AND sessionDate = meeting_date
             AND room = room_num
             AND floor = floor_num;
-            meeting_slot := meeting_slot + 1;
-        END LOOP;
-    END IF;
+        END IF;
+        meeting_slot := meeting_slot + 1;
+    END LOOP;
 END
 $$ LANGUAGE plpgsql;
-
 CREATE OR REPLACE PROCEDURE declare_health(id BIGINT, curr_date DATE, curr_temp NUMERIC) AS $$
 	BEGIN --assume that health declaration is to be done once at the end of the day
 		INSERT INTO HealthDeclarations (eid, declareDate, temp) VALUES(id, curr_date, curr_temp);
