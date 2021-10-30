@@ -362,7 +362,7 @@ RETURN TABLE(floor_number INTEGER, room_number INTEGER, meeting_date DATE, start
 
         SELECT did INTO manager_did FROM Employees E WHERE E.eid = eid_input;
 
-        SELECT S.floor, S.room, S.sessionDate, S.sessionTime, eid_input
+        SELECT S.floor, S.room, S.sessionDate, S.sessionTime, S.bookerId
         FROM Sessions S NATURAL JOIN MeetingRooms M 
         WHERE M.did = manager_did 
                 AND S.approverId IS NULL
