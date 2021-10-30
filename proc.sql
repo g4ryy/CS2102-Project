@@ -44,6 +44,9 @@ CREATE OR REPLACE PROCEDURE add_employee(ename_input TEXT, department_name TEXT,
             INSERT INTO Managers(eid) VALUES(variable_id);
         ELSE INSERT INTO Juniors(eid) VALUES(variable_id);
         END IF;
+
+        UPDATE Employees 
+        SET email = LOWER(REPLACE(SELECT ename FROM Employees E WHERE E.eid = variable_id, ' ', ''))  || variable_id.eid::TEXT || '@company.com' WHERE Employees.eid = variable_id;
     END;
 $$ LANGUAGE plpgsql;
 
@@ -354,20 +357,6 @@ RETURN TABLE(floor_number INTEGER, room_number INTEGER, meeting_date DATE, start
 $$ LANGUAGE plpgsql;
         
 ------------------------------------- TRIGGERS ---------------------------------------------
--- generates unique email for a new employee that has just been added.
-CREATE OR REPLACE FUNCTION generate_email()
-RETURNS TRIGGER AS $$
-BEGIN
-    UPDATE Employees 
-    SET email = LOWER(REPLACE(NEW.ename, ' ', ''))  || NEW.eid::TEXT || '@company.com' WHERE Employees.eid = NEW.eid;
-    RETURN NULL;
-END;
-$$ LANGUAGE plpgsql; 
-
-CREATE TRIGGER new_employee_added 
-AFTER INSERT ON Employees
-FOR EACH ROW EXECUTE FUNCTION generate_email();
-
 -- ensure each employee is only of 1 type
 CREATE OR REPLACE FUNCTION check_type()
 RETURNS TRIGGER AS $$
