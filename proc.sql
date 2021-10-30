@@ -270,7 +270,7 @@ RETURNS TABLE(close_contacts_id BIGINT) AS $$ --assume that health declaration i
 
             CREATE TEMP TABLE IF NOT EXISTS temp AS
             SELECT DISTINCT(j1.eid)
-            FROM Joins j1, (SELECT j2.room, j2.floor, j2.sessionDate 
+            FROM Joins j1, (SELECT j2.room, j2.floor, j2.sessionDate, j2.sessionTime
                             FROM Joins j2, Sessions s1
                             WHERE j2.eid = id
                             AND s1.approverID IS NOT NULL
@@ -285,6 +285,7 @@ RETURNS TABLE(close_contacts_id BIGINT) AS $$ --assume that health declaration i
             WHERE j1.room = c1.room 
             AND j1.floor = c1.floor 
             AND j1.sessionDate = c1.sessionDate
+            AND j1.sessionTime = c1.sessionTime
             AND j1.eid <> id;
 
             OPEN curs1 FOR SELECT * FROM temp;
