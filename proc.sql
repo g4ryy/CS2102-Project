@@ -14,7 +14,7 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE PROCEDURE add_room(floor_number INTEGER, room_number INTEGER, room_name TEXT, room_capacity INTEGER, departmentId INTEGER) AS $$
 	BEGIN
     INSERT INTO MeetingRooms (room, floor, rname, did) VALUES (room_number, floor_number, room_name, departmentId);
-    INSERT INTO Updates (update_date, new_cap, floor, room) VALUES (CURRENT_DATE, room_capacity, floor_number, room_number)
+    INSERT INTO Updates (update_date, new_cap, floor, room) VALUES (CURRENT_DATE, room_capacity, floor_number, room_number);
     END;
 $$ LANGUAGE plpgsql;
 
@@ -250,39 +250,54 @@ CREATE OR REPLACE PROCEDURE declare_health(id BIGINT, curr_date DATE, curr_temp 
 	END;
 $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION contact_tracing(id BIGINT) AS $$
-RETURNS RECORD AS $$ --assume that health declaration is always moving forward in time
+CREATE OR REPLACE FUNCTION contact_tracing(id BIGINT)
+RETURNS TABLE(close_contacts_id BIGINT) AS $$ --assume that health declaration is always moving forward in time
     DECLARE
-        curr_fever NUMERIC := SELECT fever FROM HealthDeclarations WHERE eid = id ORDER BY declareDate DESC LIMIT 1;
-        curr_date DATE := SELECT declareDate FROM HealthDeclarations WHERE eid = id ORDER BY declareDate DESC LIMIT 1;
-
-        curs1 CURSOR;
+        curr_fever BOOLEAN;
+        curr_date DATE;
+        curs1 refcursor;
         r1 RECORD;
     BEGIN
-        IF curr_fever = 1 THEN
-            DELETE FROM Joins WHERE eid = id AND sessionTime > curr_date; --delete employee from future meetings
-            DELETE FROM Sessions WHERE bookerID = id AND sessionTime > curr_date;  --delete sessions booked by the employee /auto deletes sessions in joins
+        SELECT fever FROM HealthDeclarations WHERE eid = id ORDER BY declareDate DESC LIMIT 1 INTO curr_fever;
+        SELECT declareDate FROM HealthDeclarations WHERE eid = id ORDER BY declareDate DESC LIMIT 1 INTO curr_date;
+        IF TRUE THEN
+            DELETE FROM Joins WHERE eid = id AND sessionDate > curr_date; --delete employee from future meetings
+            DELETE FROM Sessions WHERE bookerID = id AND sessionDate > curr_date;  --delete sessions booked by the employee /auto deletes sessions in joins
 
-            SELECT room, floor, sessionDate, sessionTime INTO contactRoom 
-            FROM Sessions WHERE eid = id
-            AND approverID IS NOT NULL
-            AND (sessionTime = curr_date OR sessionTime = curr_date - 1 OR sessionTime = curr_date - 2 OR sessionTime = curr_date - 3);
+            CREATE TEMP TABLE IF NOT EXISTS temp AS
+            SELECT DISTINCT(j1.eid)
+            FROM Joins j1, (SELECT j2.room, j2.floor, j2.sessionDate 
+                            FROM Joins j2, Sessions s1
+                            WHERE j2.eid = id
+                            AND s1.approverID IS NOT NULL
+                            AND j2.room = s1.room
+                            AND j2.floor = s1.floor
+                            AND j2.sessionDate = s1.sessionDate
+                            AND j2.sessionTime = s1.sessionTime
+                            AND (j2.sessionDate = curr_date OR 
+                                j2.sessionDate = (curr_date - 1) OR 
+                                j2.sessionDate = (curr_date - 2) OR 
+                                j2.sessionDate = (curr_date - 3)))c1
+            WHERE j1.room = c1.room 
+            AND j1.floor = c1.floor 
+            AND j1.sessionDate = c1.sessionDate
+            AND j1.eid <> id;
 
-            SELECT eid INTO employeesCloseContact
-            FROM Sessions s, contactRoom c
-            WHERE s.room = c.room AND s.floor = c.floor AND s.sessionDate = c.sessionDate AND s.sessionTime = c.sessionTime;
-
-            OPEN curs1 FOR SELECT * FROM employeesCloseContact;
+            OPEN curs1 FOR SELECT * FROM temp;
             LOOP
             FETCH curs1 INTO r1;
             EXIT WHEN NOT FOUND;
 
-            DELETE FROM Joins WHERE eid = r1.id AND (sessionTime >= curr_date OR sessionTime < curr_date + 7) --delete contacted employees from future meetings
+            DELETE FROM Joins j
+            WHERE j.eid = r1.eid 
+            AND (j.sessionDate >= curr_date AND 
+                j.sessionDate < curr_date + 7); --delete contacted employees from future meetings
 
             END LOOP;
             CLOSE curs1;
-            RETURN employeesCloseContact;
 
+            RETURN QUERY
+            SELECT * FROM temp;
         ELSE
             RETURN;
         END IF;
