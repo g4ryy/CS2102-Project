@@ -328,9 +328,13 @@ RETURN TABLE(floor_number INTEGER, room_number INTEGER, meeting_date DATE, start
         FROM Joins J NATURAL JOIN Sessions S
         WHERE J.eid = eid_input 
                 AND ((J.sessionDate > start_date) OR (J.sessionDate = start_date AND J.sessionTime >= start_hour))
-                AND S.approverId IS NOT NULL;
+                AND S.approverId IS NOT NULL
+        ORDER BY J.sessionDate, J.sessionTime;
     END;
 $$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION view_manager_report(start_date DATE, eid_input BIGINT)
+
 
 
 
