@@ -54,9 +54,8 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE PROCEDURE remove_employee(eid_input BIGINT, resignationDate DATE) AS $$
     BEGIN   
         UPDATE Employees SET resignedDate = resignationDate WHERE eid = eid_input;
-        DELETE FROM Bookers WHERE eid = eid_input;
-        DELETE FROM Juniors WHERE eid = eid_input;
-        DELETE FROM Joins WHERE eid = eid_input; /*Remove this employee from all future meetings*/
+        DELETE FROM Sessions WHERE bookerId = eid_input AND sessionDate > resignationDate; -- delete all future meetings booked by this employee
+        DELETE FROM Joins WHERE eid = eid_input AND sessionDate > resignationDate;  -- Remove this employee from all future meetings
     END;
 $$ LANGUAGE plpgsql;
 
@@ -100,7 +99,6 @@ CREATE OR REPLACE PROCEDURE book_room(floor_num INT, room_num INT, booking_date 
                 VALUES (booking_date, temp, room_num, floor_num, eid_input);
                 temp := temp + 1;
             END LOOP;
-            CALL join_meeting(floor_num, room_num, booking_date, start_hour, end_hour, eid_input);
         END IF;
 END;
 $$ LANGUAGE plpgsql;
@@ -468,9 +466,75 @@ END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER before_book_check
-BEFORE INSERT OR UPDATE ON Sessions
-FOR EACH ROW
+BEFORE INSERT ON Sessions
+FOR EACH ROW 
 EXECUTE FUNCTION check_for_booking();
+
+-- booker immediately join as participant
+CREATE OR REPLACE FUNCTION join_after_book() 
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO Joins VALUES(NEW.bookerId, NEW.sessionDate, NEW.sessionTime, NEW.room, NEW.floor);
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER immediate_join
+AFTER INSERT ON Sessions
+FOR EACH ROW
+EXECUTE FUNCTION join_after_book();
+
+
+/* Sessions that are not approved yet can be modified, but must not exceed capacity of room and must meet the same 
+conditions for inserting a new booking. */
+CREATE OR REPLACE FUNCTION check_for_modification()
+RETURNS TRIGGER AS $$
+DECLARE
+    fever_status BOOLEAN;
+BEGIN
+    IF NEW.sessionDate > (SELECT resignedDate FROM Employees E WHERE E.eid = NEW.bookerId) THEN
+        RAISE NOTICE 'Booker already resigned!';
+        RETURN NULL;
+    END IF;
+
+    IF (NEW.sessionDate <> OLD.sessionDate OR NEW.sessionTime <> OLD.sessionTime)
+        AND EXISTS (SELECT 1 FROM Joins J WHERE J.eid = NEW.bookerId AND J.sessionDate = NEW.sessionDate AND J.sessionTime = NEW.sessionTime) THEN
+        RAISE NOTICE 'Unable to change booking, booker has conflict with another meeting!';
+        RETURN NULL;
+    END IF;
+
+    IF (
+        (SELECT COUNT(*) FROM Joins J WHERE J.sessionDate = OLD.sessionDate AND 
+                J.sessionTime = OLD.sessionTime AND J.room = OLD.room AND J.floor = OLD.floor) 
+        > (SELECT new_cap FROM Updates U WHERE U.floor = NEW.floor AND U.room = NEW.room ORDER BY update_date DESC LIMIT 1) 
+        ) THEN 
+        RAISE NOTICE 'Exceed room capacity of new room, cannot change!';
+        RETURN NULL;
+    END IF;
+
+    SELECT fever INTO fever_status
+    FROM HealthDeclarations
+    WHERE HealthDeclarations.eid = NEW.bookerId
+    AND HealthDeclarations.declareDate = NEW.sessionDate;
+
+    IF fever_status = 't' THEN
+        RAISE NOTICE 'Cannot book when having fever!';
+        RETURN NULL;
+    ELSE
+        IF NEW.bookerId <> OLD.bookerId THEN
+            UPDATE Joins J SET eid = NEW.bookerId 
+            WHERE J.eid = OLD.bookerId AND J.sessionDate = OLD.sessionDate AND J.sessionTime = OLD.sessionTime AND J.room = OLD.room AND J.floor = OLD.floor;
+        END IF;
+        RETURN NEW;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER modify_not_approved_yet 
+BEFORE UPDATE ON Sessions 
+FOR EACH ROW WHEN (NEW.approverId IS NULL)
+EXECUTE FUNCTION check_for_modification();
+
 
 /* Ensure a manager can only approve a booked meeting from the same department provided that they have not resigned,
 Also ensures that an approval can only be made on future meetings. */
@@ -538,7 +602,14 @@ BEGIN
         RETURN NULL;
     END IF;
 
-    IF EXISTS (SELECT 1 FROM Joins J WHERE J.eid = NEW.eid AND J.sessionDate = NEW.sessionDate AND J.sessionTime = NEW.sessionTime) THEN
+    IF TG_OP = 'INSERT' AND EXISTS (SELECT 1 FROM Joins J WHERE J.eid = NEW.eid AND J.sessionDate = NEW.sessionDate AND J.sessionTime = NEW.sessionTime) THEN
+        RAISE NOTICE 'There is a conflict with another meeting!';
+        RETURN NULL;
+    END IF;
+
+    IF TG_OP = 'UPDATE' AND 
+            EXISTS (SELECT 1 FROM Joins J WHERE J.eid = NEW.eid AND J.sessionDate = NEW.sessionDate AND J.sessionTime = NEW.sessionTime 
+                    AND (J.room <> OLD.room OR J.floor <> OLD.floor))THEN
         RAISE NOTICE 'There is a conflict with another meeting!';
         RETURN NULL;
     END IF;
@@ -546,6 +617,24 @@ BEGIN
     IF ((SELECT approverId FROM Sessions S WHERE S.sessionDate = NEW.sessionDate 
             AND S.sessionTime = NEW.sessionTime AND S.room = NEW.room AND S.floor = NEW.floor) IS NOT NULL) THEN
         RAISE NOTICE 'Meeting had already been approved, cannot join anymore!';
+        RETURN NULL;
+    END IF; 
+
+    IF (
+        (SELECT COUNT(*) FROM Joins J WHERE J.sessionDate = NEW.sessionDate AND 
+                J.sessionTime = NEW.sessionTime AND J.room = NEW.room AND J.floor = NEW.floor) 
+        >= (SELECT new_cap FROM Updates U WHERE U.floor = NEW.floor AND U.room = NEW.room ORDER BY update_date DESC LIMIT 1) 
+        ) THEN 
+        RAISE NOTICE 'No more vacancies, unable to join!';
+        RETURN NULL;
+    END IF;
+
+    IF (
+        TG_OP = 'UPDATE' AND 
+                (SELECT approverId FROM Sessions S WHERE S.sessionDate = OLD.sessionDate 
+                AND S.sessionTime = OLD.sessionTime AND S.room = OLD.room AND S.floor = OLD.floor) IS NOT NULL
+        ) THEN
+        RAISE NOTICE 'Meeting had already been approved, cannot change anymore!';
         RETURN NULL;
     END IF; 
 
@@ -568,9 +657,33 @@ BEFORE INSERT OR UPDATE ON Joins
 FOR EACH ROW
 EXECUTE FUNCTION check_for_joining();
 
+
+-- activates contact tracing whenever a health declaration is made 
 CREATE TRIGGER activate_contact_tracing
 AFTER INSERT ON HealthDeclarations
 FOR EACH ROW
 EXECUTE FUNCTION contact_tracing(NEW.eid);
+
+/* When a meeting room has its capacity changed, any room booking after the change date with more 
+participants (including the employee who made the booking) will automatically be removed. 
+This is regardless of whether they are approved or not. */
+CREATE OR REPLACE FUNCTION check_exceed_cap() 
+RETURNS TRIGGER AS $$
+BEGIN 
+    DELETE FROM Sessions S
+    WHERE S.sessionDate > NEW.update_date
+    AND S.room = NEW.room 
+    AND S.floor = NEW.floor
+    AND  (SELECT COUNT(*) FROM Joins J WHERE S.sessionDate = J.sessionDate 
+            AND S.sessionTime = J.sessionTime AND S.room = J.room AND S.floor = J.floor) > NEW.new_cap;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+    
+CREATE TRIGGER remove_exceed_cap
+AFTER INSERT OR UPDATE ON Updates
+FOR EACH ROW 
+EXECUTE FUNCTION check_exceed_cap();
+
 
 
