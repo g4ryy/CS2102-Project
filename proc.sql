@@ -39,14 +39,15 @@ CREATE OR REPLACE PROCEDURE add_employee(ename_input TEXT, department_name TEXT,
         IF LOWER(kind) = 'senior' THEN 
             INSERT INTO Bookers(eid) VALUES(variable_id);
             INSERT INTO Seniors(eid) VALUES(variable_id);
-        ELSEIF LOWER(kind) = 'manager' THEN
+        ELSIF LOWER(kind) = 'manager' THEN
             INSERT INTO Bookers(eid) VALUES(variable_id);
             INSERT INTO Managers(eid) VALUES(variable_id);
         ELSE INSERT INTO Juniors(eid) VALUES(variable_id);
         END IF;
 
         UPDATE Employees 
-        SET email = LOWER(REPLACE(SELECT ename FROM Employees E WHERE E.eid = variable_id, ' ', ''))  || variable_id.eid::TEXT || '@company.com' WHERE Employees.eid = variable_id;
+        SET email = LOWER(REPLACE(ename_input, ' ', ''))  || variable_id::TEXT || '@company.com' 
+        WHERE Employees.eid = variable_id;
     END;
 $$ LANGUAGE plpgsql;
 
@@ -55,7 +56,6 @@ CREATE OR REPLACE PROCEDURE remove_employee(eid_input BIGINT, resignationDate DA
         UPDATE Employees SET resignedDate = resignationDate WHERE eid = eid_input;
         DELETE FROM Bookers WHERE eid = eid_input;
         DELETE FROM Juniors WHERE eid = eid_input;
-        DELETE FROM Sessions WHERE bookerId = eid_input AND sessionDate > resignationDate; /*delete all meetings booked by this employee*/
         DELETE FROM Joins WHERE eid = eid_input; /*Remove this employee from all future meetings*/
     END;
 $$ LANGUAGE plpgsql;
