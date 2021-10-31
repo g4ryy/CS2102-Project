@@ -192,33 +192,27 @@ CREATE OR REPLACE PROCEDURE leave_meeting(floor_num INTEGER,
     end_hour INTEGER,
     eid_input BIGINT)
 AS $$
-DECLARE meeting_slot INTEGER:= start_hour;
-        approval_indicator BIGINT;
+DECLARE 
+    meeting_slot INTEGER:= start_hour;
+    approval_indicator BIGINT;
 BEGIN
-    WHILE meeting_slot < end_hour LOOP
-        SELECT * FROM check_approval(meeting_date, meeting_slot, floor_num, room_num) INTO approval_indicator;
-        IF approval_indicator IS NULL AND EXISTS (SELECT 1 
-                                                  FROM Joins
-                                                  WHERE  sessionTime = meeting_slot
-                                                  AND sessionDate = meeting_date
-                                                  AND room = room_num
-                                                  AND floor = floor_num
-                                                  AND eid = eid_input) THEN
-            DELETE FROM Sessions 
-            WHERE sessionTime = meeting_slot 
-            AND bookerID = eid_input 
-            AND sessionDate = meeting_date
-            AND room = room_num
-            AND floor = floor_num;
-            DELETE FROM Joins 
-            WHERE sessionTime = meeting_slot
-            AND eid = eid_input
-            AND sessionDate = meeting_date
-            AND room = room_num
-            AND floor = floor_num;
-        END IF;
-        meeting_slot := meeting_slot + 1;
-    END LOOP;
+    DELETE FROM Sessions S
+    WHERE S.sessionDate = meeting_date AND
+    S.sessionTime >= start_hour AND
+    S.sessionTime < end_hour AND
+    S.bookerId = eid_input AND
+    S.floor = floor_num AND
+    S.room = room_num AND
+    check_approval(meeting_date, S.sessionTime, floor_num, room_num) IS NULL; 
+
+    DELETE FROM Joins J
+    WHERE J.sessionDate = meeting_date AND
+    J.sessionTime >= start_hour AND
+    J.sessionTime < end_hour AND
+    J.eid = eid_input AND
+    J.floor = floor_num AND
+    J.room = room_num AND
+    check_approval(meeting_date, J.sessionTime, floor_num, room_num) IS NULL; 
 END;
 $$ LANGUAGE plpgsql;
 
