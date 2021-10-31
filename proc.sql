@@ -238,10 +238,11 @@ BEGIN
         END IF;
         meeting_slot := meeting_slot + 1;
     END LOOP;
-END
+END;
 $$ LANGUAGE plpgsql;
+
 CREATE OR REPLACE PROCEDURE declare_health(id BIGINT, curr_date DATE, curr_temp NUMERIC) AS $$
-	BEGIN --assume that health declaration is to be done once at the end of the day
+	BEGIN --assume that health declaration is to be done once by the end of the day
 		INSERT INTO HealthDeclarations (eid, declareDate, temp) VALUES(id, curr_date, curr_temp);
 	END;
 $$ LANGUAGE plpgsql;
@@ -317,7 +318,7 @@ $$ LANGUAGE plpgsql;
 
 
 CREATE OR REPLACE FUNCTION view_booking_report(start_date DATE, eid BIGINT)
-RETURN TABLE(floor_number INTEGER, room_number INTEGER, meeting_date DATE, start_hour INTEGER, is_approved BOOLEAN) AS $$
+RETURNS TABLE(floor_number INTEGER, room_number INTEGER, meeting_date DATE, start_hour INTEGER, is_approved BOOLEAN) AS $$
     BEGIN
         RETURN QUERY
         SELECT floor, room, sessionDate, sessionTime, approverID IS NOT NULL
@@ -327,8 +328,8 @@ RETURN TABLE(floor_number INTEGER, room_number INTEGER, meeting_date DATE, start
     END;
 $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION view_future_meeting(start_date DATE, start_hour INTEGER, eid_input BIGINT)  
-RETURN TABLE(floor_number INTEGER, room_number INTEGER, meeting_date DATE, start_hour INTEGER) AS $$
+CREATE OR REPLACE FUNCTION view_future_meeting(start_date DATE, start_slot INTEGER, eid_input BIGINT)  
+RETURNS TABLE(floor_number INTEGER, room_number INTEGER, meeting_date DATE, start_hour INTEGER) AS $$
     BEGIN
         IF (start_date < CURRENT_DATE OR (start_date = CURRENT_DATE AND start_hour <= EXTRACT(HOUR FROM NOW()))) THEN
             RAISE NOTICE 'start_date and start_hour must be in the future!';
@@ -339,14 +340,14 @@ RETURN TABLE(floor_number INTEGER, room_number INTEGER, meeting_date DATE, start
         SELECT J.floor, J.room, J.sessionDate, J.sessionTime 
         FROM Joins J NATURAL JOIN Sessions S
         WHERE J.eid = eid_input 
-                AND ((J.sessionDate > start_date) OR (J.sessionDate = start_date AND J.sessionTime >= start_hour))
+                AND ((J.sessionDate > start_date) OR (J.sessionDate = start_date AND J.sessionTime >= start_slot))
                 AND S.approverId IS NOT NULL
         ORDER BY J.sessionDate, J.sessionTime;
     END;
 $$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION view_manager_report(start_date DATE, eid_input BIGINT)
-RETURN TABLE(floor_number INTEGER, room_number INTEGER, meeting_date DATE, start_hour INTEGER, eid BIGINT) 
+RETURNS TABLE(floor_number INTEGER, room_number INTEGER, meeting_date DATE, start_hour INTEGER, eid BIGINT) AS $$
     DECLARE
         manager_did INTEGER;
     BEGIN
@@ -356,6 +357,7 @@ RETURN TABLE(floor_number INTEGER, room_number INTEGER, meeting_date DATE, start
 
         SELECT did INTO manager_did FROM Employees E WHERE E.eid = eid_input;
 
+        RETURN QUERY
         SELECT S.floor, S.room, S.sessionDate, S.sessionTime, S.bookerId
         FROM Sessions S NATURAL JOIN MeetingRooms M 
         WHERE M.did = manager_did 
