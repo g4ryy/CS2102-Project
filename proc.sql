@@ -5,11 +5,13 @@ CREATE OR REPLACE PROCEDURE add_department(id INTEGER, name TEXT) AS $$
 	END;
 $$ LANGUAGE plpgsql;
 
+
 CREATE OR REPLACE PROCEDURE remove_department(id INTEGER) AS $$
 	BEGIN
 		DELETE FROM Departments WHERE did = id;
 	END;
 $$ LANGUAGE plpgsql;
+
 
 CREATE OR REPLACE PROCEDURE add_room(floor_number INTEGER, room_number INTEGER, room_name TEXT, room_capacity INTEGER, departmentId INTEGER) AS $$
 	BEGIN
@@ -17,6 +19,7 @@ CREATE OR REPLACE PROCEDURE add_room(floor_number INTEGER, room_number INTEGER, 
     INSERT INTO Updates (update_date, new_cap, floor, room) VALUES (CURRENT_DATE, room_capacity, floor_number, room_number);
     END;
 $$ LANGUAGE plpgsql;
+
 
 CREATE OR REPLACE PROCEDURE change_capacity(floor_number INTEGER, room_number INTEGER, capacity INTEGER, changed_date DATE, eid_input INTEGER) AS $$
     BEGIN
@@ -26,6 +29,7 @@ CREATE OR REPLACE PROCEDURE change_capacity(floor_number INTEGER, room_number IN
         END IF;
     END;
 $$ LANGUAGE plpgsql;
+
 
 CREATE OR REPLACE PROCEDURE add_employee(ename_input TEXT, department_name TEXT, mobile_contact_input INTEGER, home_contact_input INTEGER,
     office_contact_input INTEGER, kind TEXT) AS $$
@@ -51,6 +55,7 @@ CREATE OR REPLACE PROCEDURE add_employee(ename_input TEXT, department_name TEXT,
     END;
 $$ LANGUAGE plpgsql;
 
+
 CREATE OR REPLACE PROCEDURE remove_employee(eid_input BIGINT, resignationDate DATE) AS $$
     BEGIN   
         UPDATE Employees SET resignedDate = resignationDate WHERE eid = eid_input;
@@ -58,6 +63,7 @@ CREATE OR REPLACE PROCEDURE remove_employee(eid_input BIGINT, resignationDate DA
         DELETE FROM Joins WHERE eid = eid_input AND sessionDate > resignationDate;  -- Remove this employee from all future meetings
     END;
 $$ LANGUAGE plpgsql;
+
 
 CREATE OR REPLACE FUNCTION search_room(capacity_input INTEGER, search_date DATE, start_hour INTEGER, end_hour INTEGER)
 RETURNS TABLE(floor_number INTEGER, room_number INTEGER, Department_id INTEGER, capacity INTEGER) AS $$
@@ -87,6 +93,7 @@ RETURN QUERY
 END;
 $$ LANGUAGE plpgsql;
 
+
 CREATE OR REPLACE PROCEDURE book_room(floor_num INT, room_num INT, booking_date DATE, start_hour INT, end_hour INT, eid_input INT) AS $$
     DECLARE temp INT := start_hour;
     BEGIN
@@ -102,6 +109,7 @@ CREATE OR REPLACE PROCEDURE book_room(floor_num INT, room_num INT, booking_date 
         END IF;
 END;
 $$ LANGUAGE plpgsql;
+
 
 CREATE OR REPLACE PROCEDURE unbook_room(floor_number INT, room_number INT, unbookingDate DATE, start_hour INT, end_hour INT, eid INT)
 AS $$
@@ -124,6 +132,7 @@ AS $$
 END;
 $$ LANGUAGE plpgsql;
 
+
 CREATE OR REPLACE FUNCTION find_room_capacity(meeting_date DATE, floor_num INTEGER,room_num INTEGER)
 RETURNS INTEGER AS $$
     SELECT new_cap
@@ -142,6 +151,7 @@ RETURNS BIGINT AS $$
         AND room = room_num
         AND floor = floor_num;
 $$ LANGUAGE sql;
+
 
 CREATE OR REPLACE PROCEDURE join_meeting(floor_num INTEGER,
     room_num INTEGER,
@@ -185,6 +195,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+
 CREATE OR REPLACE PROCEDURE leave_meeting(floor_num INTEGER,
     room_num INTEGER,
     meeting_date DATE,
@@ -216,6 +227,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+
 CREATE OR REPLACE PROCEDURE approve_meeting(floor_num INTEGER,
     room_num INTEGER,
     meeting_date DATE,
@@ -241,11 +253,13 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+
 CREATE OR REPLACE PROCEDURE declare_health(id BIGINT, curr_date DATE, curr_temp NUMERIC) AS $$
 	BEGIN --assume that health declaration is to be done once by the end of the day
 		INSERT INTO HealthDeclarations (eid, declareDate, temp) VALUES(id, curr_date, curr_temp);
 	END;
 $$ LANGUAGE plpgsql;
+
 
 CREATE OR REPLACE FUNCTION contact_tracing(id BIGINT)
 RETURNS TABLE(close_contacts_id BIGINT) AS $$ --assume that health declaration is always moving forward in time
@@ -302,6 +316,7 @@ RETURNS TABLE(close_contacts_id BIGINT) AS $$ --assume that health declaration i
     END;
 $$ LANGUAGE plpgsql;
 
+
 CREATE OR REPLACE FUNCTION non_compliance(start_date DATE, end_date DATE)
 RETURNS TABLE(id BIGINT, days BIGINT) AS $$
 	DECLARE
@@ -328,6 +343,7 @@ RETURNS TABLE(floor_number INTEGER, room_number INTEGER, meeting_date DATE, star
     END;
 $$ LANGUAGE plpgsql;
 
+
 CREATE OR REPLACE FUNCTION view_future_meeting(start_date DATE, start_slot INTEGER, eid_input BIGINT)  
 RETURNS TABLE(floor_number INTEGER, room_number INTEGER, meeting_date DATE, start_hour INTEGER) AS $$
     BEGIN
@@ -345,6 +361,7 @@ RETURNS TABLE(floor_number INTEGER, room_number INTEGER, meeting_date DATE, star
         ORDER BY J.sessionDate, J.sessionTime;
     END;
 $$ LANGUAGE plpgsql;
+
 
 CREATE OR REPLACE FUNCTION view_manager_report(start_date DATE, eid_input BIGINT)
 RETURNS TABLE(floor_number INTEGER, room_number INTEGER, meeting_date DATE, start_hour INTEGER, eid BIGINT) AS $$
@@ -392,12 +409,12 @@ BEFORE INSERT OR UPDATE ON Juniors
 FOR EACH ROW 
 EXECUTE FUNCTION check_type();
 
-CREATE TRIGGER check_senior
+CREATE TRIGGER is_senior_only
 BEFORE INSERT OR UPDATE ON Seniors
 FOR EACH ROW 
 EXECUTE FUNCTION check_type();
 
-CREATE TRIGGER check_manager
+CREATE TRIGGER is_manager_only
 BEFORE INSERT OR UPDATE ON Managers
 FOR EACH ROW 
 EXECUTE FUNCTION check_type();
@@ -450,7 +467,7 @@ BEGIN
     SELECT fever INTO fever_status
     FROM HealthDeclarations
     WHERE HealthDeclarations.eid = NEW.bookerId
-    AND HealthDeclarations.declareDate = NEW.sessionDate;
+    AND HealthDeclarations.declareDate = CURRENT_DATE;
 
     IF fever_status = 't' THEN
         RAISE NOTICE 'Cannot book when having fever!';
@@ -511,7 +528,7 @@ BEGIN
     SELECT fever INTO fever_status
     FROM HealthDeclarations
     WHERE HealthDeclarations.eid = NEW.bookerId
-    AND HealthDeclarations.declareDate = NEW.sessionDate;
+    AND HealthDeclarations.declareDate = CURRENT_DATE;
 
     IF fever_status = 't' THEN
         RAISE NOTICE 'Cannot book when having fever!';
@@ -637,7 +654,7 @@ BEGIN
     SELECT fever INTO fever_status
     FROM HealthDeclarations
     WHERE HealthDeclarations.eid = NEW.eid
-    AND HealthDeclarations.declareDate = NEW.sessionDate;
+    AND HealthDeclarations.declareDate = CURRENT_DATE;
 
     IF fever_status = 't' THEN
         RAISE NOTICE 'Cannot join when having fever!';
