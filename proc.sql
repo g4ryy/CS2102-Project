@@ -61,6 +61,7 @@ CREATE OR REPLACE PROCEDURE remove_employee(eid_input BIGINT, resignationDate DA
         UPDATE Employees SET resignedDate = resignationDate WHERE eid = eid_input;
         DELETE FROM Sessions WHERE bookerId = eid_input AND sessionDate > resignationDate; -- delete all future meetings booked by this employee
         DELETE FROM Joins WHERE eid = eid_input AND sessionDate > resignationDate;  -- Remove this employee from all future meetings
+        UPDATE Sessions SET approverId = NULL WHERE sessionDate > resignationDate; -- Remove all approval of future meetings by the leaving employee
     END;
 $$ LANGUAGE plpgsql;
 
@@ -604,7 +605,8 @@ EXECUTE FUNCTION cannot_approve_anymore();
 1. employee has resigned or 
 2. employee has fever or
 3. employee has another meeting at that date and time OR 
-4. Meeting had already been approved */
+4. Meeting had already been approved 
+5. Meeting capacity reached */
 CREATE OR REPLACE FUNCTION check_for_joining()
 RETURNS TRIGGER AS $$
 DECLARE
