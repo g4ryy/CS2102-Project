@@ -83,11 +83,13 @@ CREATE TABLE Joins (
 );
 
 CREATE TABLE Updates (
+    eid BIGINT NOT NULL,
     update_date DATE,
     new_cap INTEGER NOT NULL,
     floor INTEGER, 
     room INTEGER,
     PRIMARY KEY (update_date, floor, room),
+    FOREIGN KEY (eid) REFERENCES Managers (eid) ON DELETE CASCADE ON UPDATE CASCADE,
     FOREIGN KEY (floor, room) REFERENCES MeetingRooms(floor, room) ON DELETE CASCADE ON UPDATE CASCADE
 );
 

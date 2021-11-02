@@ -13,10 +13,10 @@ CREATE OR REPLACE PROCEDURE remove_department(id INTEGER) AS $$
 $$ LANGUAGE plpgsql;
 
 
-CREATE OR REPLACE PROCEDURE add_room(floor_number INTEGER, room_number INTEGER, room_name TEXT, room_capacity INTEGER, departmentId INTEGER) AS $$
+CREATE OR REPLACE PROCEDURE add_room(floor_number INTEGER, room_number INTEGER, room_name TEXT, room_capacity INTEGER, eid_input BIGINT, departmentId INTEGER) AS $$
 	BEGIN
     INSERT INTO MeetingRooms (room, floor, rname, did) VALUES (room_number, floor_number, room_name, departmentId);
-    INSERT INTO Updates (update_date, new_cap, floor, room) VALUES (CURRENT_DATE, room_capacity, floor_number, room_number);
+    INSERT INTO Updates (eid, update_date, new_cap, floor, room) VALUES (eid_input, CURRENT_DATE, room_capacity, floor_number, room_number);
     END;
 $$ LANGUAGE plpgsql;
 
