@@ -600,11 +600,11 @@ BEFORE UPDATE ON Sessions
 FOR EACH ROW WHEN (OLD.approverId IS NOT NULL AND NEW.approverId IS NOT NULL)
 EXECUTE FUNCTION cannot_approve_anymore();
 
-/**prevent joining if :
+/*prevent joining if :
 1. employee has resigned or 
 2. employee has fever or
 3. employee has another meeting at that date and time OR 
-4. Meeting had already been approved **//
+4. Meeting had already been approved */
 CREATE OR REPLACE FUNCTION check_for_joining()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -647,8 +647,8 @@ BEGIN
                 (SELECT approverId FROM Sessions S WHERE S.sessionDate = OLD.sessionDate 
                 AND S.sessionTime = OLD.sessionTime AND S.room = OLD.room AND S.floor = OLD.floor) IS NOT NULL
         ) THEN
-        RAISE NOTICE 'Meeting had already been approved, cannot change anymore!';
-        RETURN NULL;
+            RAISE NOTICE 'Meeting had already been approved, cannot change anymore!';
+            RETURN NULL;
     END IF; 
 
     SELECT fever INTO fever_status
@@ -670,12 +670,6 @@ BEFORE INSERT OR UPDATE ON Joins
 FOR EACH ROW
 EXECUTE FUNCTION check_for_joining();
 
-
--- activates contact tracing whenever a health declaration is made 
-CREATE TRIGGER activate_contact_tracing
-AFTER INSERT ON HealthDeclarations
-FOR EACH ROW
-EXECUTE FUNCTION contact_tracing(NEW.eid);
 
 /* When a meeting room has its capacity changed, any room booking after the change date with more 
 participants (including the employee who made the booking) will automatically be removed. 
