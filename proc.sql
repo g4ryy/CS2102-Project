@@ -665,7 +665,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER prevent_join_if_resigned_or_fever
+CREATE TRIGGER join_check
 BEFORE INSERT OR UPDATE ON Joins
 FOR EACH ROW
 EXECUTE FUNCTION check_for_joining();
