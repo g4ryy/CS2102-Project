@@ -75,9 +75,9 @@ CREATE TABLE Joins (
     eid BIGINT,
     sessionDate DATE,
     sessionTime INTEGER,
-    room INTEGER, 
-    floor INTEGER,
-    PRIMARY KEY (eid, sessionDate, sessionTime, room, floor),
+    room INTEGER NOT NULL, 
+    floor INTEGER NOT NULL,
+    PRIMARY KEY (eid, sessionDate, sessionTime),
     FOREIGN KEY (eid) REFERENCES Employees(eid) ON DELETE CASCADE ON UPDATE CASCADE,
     FOREIGN KEY (sessionDate, sessionTime, room, floor) REFERENCES Sessions(sessionDate, sessionTime, room, floor) ON DELETE CASCADE ON UPDATE CASCADE
 );

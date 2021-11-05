@@ -617,18 +617,6 @@ BEGIN
         RETURN NULL;
     END IF;
 
-    IF TG_OP = 'INSERT' AND EXISTS (SELECT 1 FROM Joins J WHERE J.eid = NEW.eid AND J.sessionDate = NEW.sessionDate AND J.sessionTime = NEW.sessionTime) THEN
-        RAISE NOTICE 'There is a conflict with another meeting!';
-        RETURN NULL;
-    END IF;
-
-    IF TG_OP = 'UPDATE' AND 
-            EXISTS (SELECT 1 FROM Joins J WHERE J.eid = NEW.eid AND J.sessionDate = NEW.sessionDate AND J.sessionTime = NEW.sessionTime 
-                    AND (J.room <> OLD.room OR J.floor <> OLD.floor))THEN
-        RAISE NOTICE 'There is a conflict with another meeting!';
-        RETURN NULL;
-    END IF;
-
     IF ((SELECT approverId FROM Sessions S WHERE S.sessionDate = NEW.sessionDate 
             AND S.sessionTime = NEW.sessionTime AND S.room = NEW.room AND S.floor = NEW.floor) IS NOT NULL) THEN
         RAISE NOTICE 'Meeting had already been approved, cannot join anymore!';
