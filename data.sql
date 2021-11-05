@@ -134,37 +134,37 @@ INSERT INTO MeetingRooms(floor, room, rname, did) VALUES (5,10, 'r5-10', 10);
 
 
 -- Load dummy Sessions
-INSERT INTO Sessions(sessiondate, sessiontime, floor，room, bookerid) VALUES('2021-11-07', 8, 5, 1, 1);
-INSERT INTO Sessions(sessiondate, sessiontime, floor，room, bookerid) VALUES('2021-11-07', 9, 5, 1, 1);
-INSERT INTO Sessions(sessiondate, sessiontime, floor，room, bookerid) VALUES('2021-11-07', 10, 5, 1, 1);
-INSERT INTO Sessions(sessiondate, sessiontime, floor，room, bookerid) VALUES('2021-11-07', 11, 5, 1, 1);
-INSERT INTO Sessions(sessiondate, sessiontime, floor，room, bookerid) VALUES('2021-11-07', 12, 5, 1, 1);
-INSERT INTO Sessions(sessiondate, sessiontime, floor，room, bookerid) VALUES('2021-11-07', 13, 5, 1, 1);
-INSERT INTO Sessions(sessiondate, sessiontime, floor，room, bookerid) VALUES('2021-11-07', 14, 5, 1, 1);
-INSERT INTO Sessions(sessiondate, sessiontime, floor，room, bookerid) VALUES('2021-11-07', 15, 5, 1, 1);
-INSERT INTO Sessions(sessiondate, sessiontime, floor，room, bookerid) VALUES('2021-11-07', 16, 5, 1, 1);
-INSERT INTO Sessions(sessiondate, sessiontime, floor，room, bookerid) VALUES('2021-11-07', 17, 5, 1, 1);
-INSERT INTO Sessions(sessiondate, sessiontime, floor，room, bookerid) VALUES('2021-11-07', 18, 5, 1, 1);
-INSERT INTO Sessions(sessiondate, sessiontime, floor，room, bookerid) VALUES('2021-11-07', 19, 5, 1, 1);
-INSERT INTO Sessions(sessiondate, sessiontime, floor，room, bookerid) VALUES('2021-11-07', 20, 5, 1, 1);
-INSERT INTO Sessions(sessiondate, sessiontime, floor，room, bookerid) VALUES('2021-11-07', 21, 5, 1, 1);
+INSERT INTO Sessions(sessiondate, sessiontime, floor, room, bookerid) VALUES('2021-11-07', 8, 5, 1, 1);
+INSERT INTO Sessions(sessiondate, sessiontime, floor, room, bookerid) VALUES('2021-11-07', 9, 5, 1, 1);
+INSERT INTO Sessions(sessiondate, sessiontime, floor, room, bookerid) VALUES('2021-11-07', 10, 5, 1, 1);
+INSERT INTO Sessions(sessiondate, sessiontime, floor, room, bookerid) VALUES('2021-11-07', 11, 5, 1, 1);
+INSERT INTO Sessions(sessiondate, sessiontime, floor, room, bookerid) VALUES('2021-11-07', 12, 5, 1, 1);
+INSERT INTO Sessions(sessiondate, sessiontime, floor, room, bookerid) VALUES('2021-11-07', 13, 5, 1, 1);
+INSERT INTO Sessions(sessiondate, sessiontime, floor, room, bookerid) VALUES('2021-11-07', 14, 5, 1, 1);
+INSERT INTO Sessions(sessiondate, sessiontime, floor, room, bookerid) VALUES('2021-11-07', 15, 5, 1, 1);
+INSERT INTO Sessions(sessiondate, sessiontime, floor, room, bookerid) VALUES('2021-11-07', 16, 5, 1, 1);
+INSERT INTO Sessions(sessiondate, sessiontime, floor, room, bookerid) VALUES('2021-11-07', 17, 5, 1, 1);
+INSERT INTO Sessions(sessiondate, sessiontime, floor, room, bookerid) VALUES('2021-11-07', 18, 5, 1, 1);
+INSERT INTO Sessions(sessiondate, sessiontime, floor, room, bookerid) VALUES('2021-11-07', 19, 5, 1, 1);
+INSERT INTO Sessions(sessiondate, sessiontime, floor, room, bookerid) VALUES('2021-11-07', 20, 5, 1, 1);
+INSERT INTO Sessions(sessiondate, sessiontime, floor, room, bookerid) VALUES('2021-11-07', 21, 5, 1, 1);
 
 
 -- Load dummy data for Joins
-INSERT INTO Joins(eid, sessiondate, sessiontime, floor，room) VALUES(1，'2021-11-07', 8, 5, 1);
-INSERT INTO Joins(eid, sessiondate, sessiontime, floor，room) VALUES(1，'2021-11-07', 9, 5, 1);
-INSERT INTO Joins(eid, sessiondate, sessiontime, floor，room) VALUES(1，'2021-11-07', 10, 5, 1);
-INSERT INTO Joins(eid, sessiondate, sessiontime, floor，room) VALUES(1，'2021-11-07', 11, 5, 1);
-INSERT INTO Joins(eid, sessiondate, sessiontime, floor，room) VALUES(1，'2021-11-07', 12, 5, 1);
-INSERT INTO Joins(eid, sessiondate, sessiontime, floor，room) VALUES(1，'2021-11-07', 13, 5, 1);
-INSERT INTO Joins(eid, sessiondate, sessiontime, floor，room) VALUES(1，'2021-11-07', 14, 5, 1);
-INSERT INTO Joins(eid, sessiondate, sessiontime, floor，room) VALUES(1，'2021-11-07', 15, 5, 1);
-INSERT INTO Joins(eid, sessiondate, sessiontime, floor，room) VALUES(1，'2021-11-07', 16, 5, 1);
-INSERT INTO Joins(eid, sessiondate, sessiontime, floor，room) VALUES(1，'2021-11-07', 17, 5, 1);
-INSERT INTO Joins(eid, sessiondate, sessiontime, floor，room) VALUES(1，'2021-11-07', 18, 5, 1);
-INSERT INTO Joins(eid, sessiondate, sessiontime, floor，room) VALUES(1，'2021-11-07', 19, 5, 1);
-INSERT INTO Joins(eid, sessiondate, sessiontime, floor，room) VALUES(1，'2021-11-07', 20, 5, 1);
-INSERT INTO Joins(eid, sessiondate, sessiontime, floor，room) VALUES(1，'2021-11-07', 21, 5, 1);
+INSERT INTO Joins(eid, sessiondate, sessiontime, floor, room) VALUES(1，'2021-11-07', 8, 5, 1);
+INSERT INTO Joins(eid, sessiondate, sessiontime, floor, room) VALUES(1，'2021-11-07', 9, 5, 1);
+INSERT INTO Joins(eid, sessiondate, sessiontime, floor, room) VALUES(1，'2021-11-07', 10, 5, 1);
+INSERT INTO Joins(eid, sessiondate, sessiontime, floor, room) VALUES(1，'2021-11-07', 11, 5, 1);
+INSERT INTO Joins(eid, sessiondate, sessiontime, floor, room) VALUES(1，'2021-11-07', 12, 5, 1);
+INSERT INTO Joins(eid, sessiondate, sessiontime, floor, room) VALUES(1，'2021-11-07', 13, 5, 1);
+INSERT INTO Joins(eid, sessiondate, sessiontime, floor, room) VALUES(1，'2021-11-07', 14, 5, 1);
+INSERT INTO Joins(eid, sessiondate, sessiontime, floor, room) VALUES(1，'2021-11-07', 15, 5, 1);
+INSERT INTO Joins(eid, sessiondate, sessiontime, floor, room) VALUES(1，'2021-11-07', 16, 5, 1);
+INSERT INTO Joins(eid, sessiondate, sessiontime, floor, room) VALUES(1，'2021-11-07', 17, 5, 1);
+INSERT INTO Joins(eid, sessiondate, sessiontime, floor, room) VALUES(1，'2021-11-07', 18, 5, 1);
+INSERT INTO Joins(eid, sessiondate, sessiontime, floor, room) VALUES(1，'2021-11-07', 19, 5, 1);
+INSERT INTO Joins(eid, sessiondate, sessiontime, floor, room) VALUES(1，'2021-11-07', 20, 5, 1);
+INSERT INTO Joins(eid, sessiondate, sessiontime, floor, room) VALUES(1，'2021-11-07', 21, 5, 1);
 
 
 -- Load dummy data for Updates
