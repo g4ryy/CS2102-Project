@@ -2,7 +2,7 @@ DROP TABLE IF EXISTS Employees, Juniors, Bookers, Seniors, Managers, Departments
 
 CREATE TABLE Departments (
     did INTEGER PRIMARY KEY,
-    dname TEXT NOT NULL
+    dname TEXT NOT NULL UNIQUE
 );
 
 CREATE TABLE Employees (
