@@ -59,8 +59,8 @@ CREATE TABLE MeetingRooms (
 CREATE TABLE Sessions (
     sessionDate DATE,
     sessionTime INTEGER, -- In 24 hours format (0-23)
-    room INTEGER, 
     floor INTEGER,
+    room INTEGER, 
     bookerId BIGINT NOT NULL,
     approverId BIGINT,
     PRIMARY KEY (sessionDate, sessionTime, room, floor),
@@ -74,9 +74,9 @@ CREATE TABLE Sessions (
 CREATE TABLE Joins (
     eid BIGINT,
     sessionDate DATE,
-    sessionTime INTEGER,
-    room INTEGER NOT NULL, 
+    sessionTime INTEGER, 
     floor INTEGER NOT NULL,
+    room INTEGER NOT NULL, 
     PRIMARY KEY (eid, sessionDate, sessionTime),
     FOREIGN KEY (eid) REFERENCES Employees(eid) ON DELETE CASCADE ON UPDATE CASCADE,
     FOREIGN KEY (sessionDate, sessionTime, room, floor) REFERENCES Sessions(sessionDate, sessionTime, room, floor) ON DELETE CASCADE ON UPDATE CASCADE
