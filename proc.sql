@@ -1,18 +1,18 @@
 DROP PROCEDURE IF EXISTS add_department, remove_department, add_room, change_capacity, add_employee, remove_employee, book_room, unbook_room, join_meeting, leave_meeting, approve_meeting, declare_health;
 DROP FUNCTION IF EXISTS search_room, find_room_capacity, check_approval, contact_tracing, non_compliance, view_booking_report, view_future_meeting, view_manager_report, check_type, prevent_junior_booker, check_for_booking, check_for_joining, check_for_modification, join_after_book, cannot_approve_anymore, check_approve, check_exceed_cap;
-DROP TRIGGER is_junior_only ON Juniors;
-DROP TRIGGER is_senior_only ON Seniors;
-DROP TRIGGER is_manager_only ON Managers;
-DROP TRIGGER booker_cannot_be_junior ON Bookers;
-DROP TRIGGER junior_cannot_be_booker ON Juniors;
-DROP TRIGGER before_book_check ON Sessions;
-DROP TRIGGER before_approve_check ON Sessions;
-DROP TRIGGER immediate_join ON Sessions;
-DROP TRIGGER modify_not_approved_yet ON Sessions;
-DROP TRIGGER before_approve_check ON Sessions;
-DROP TRIGGER approve_only_once ON Sessions;
-DROP TRIGGER join_check ON Joins;
-DROP TRIGGER remove_exceed_cap ON Updates;
+DROP TRIGGER IF EXISTS is_junior_only ON Juniors;
+DROP TRIGGER IF EXISTS is_senior_only ON Seniors;
+DROP TRIGGER IF EXISTS is_manager_only ON Managers;
+DROP TRIGGER IF EXISTS booker_cannot_be_junior ON Bookers;
+DROP TRIGGER IF EXISTS junior_cannot_be_booker ON Juniors;
+DROP TRIGGER IF EXISTS before_book_check ON Sessions;
+DROP TRIGGER IF EXISTS before_approve_check ON Sessions;
+DROP TRIGGER IF EXISTS immediate_join ON Sessions;
+DROP TRIGGER IF EXISTS modify_not_approved_yet ON Sessions;
+DROP TRIGGER IF EXISTS before_approve_check ON Sessions;
+DROP TRIGGER IF EXISTS approve_only_once ON Sessions;
+DROP TRIGGER IF EXISTS join_check ON Joins;
+DROP TRIGGER IF EXISTS remove_exceed_cap ON Updates;
 
 
 
@@ -40,11 +40,11 @@ CREATE OR REPLACE PROCEDURE add_room(floor_number INTEGER, room_number INTEGER, 
 $$ LANGUAGE plpgsql;
 
 
-CREATE OR REPLACE PROCEDURE change_capacity(floor_number INTEGER, room_number INTEGER, capacity INTEGER, changed_date DATE, eid_input INTEGER) AS $$
+CREATE OR REPLACE PROCEDURE change_capacity(floor_number INTEGER, room_number INTEGER, capacity INTEGER, changed_date DATE, eid_input BIGINT) AS $$
     BEGIN
         IF ((eid_input IN (SELECT eid FROM Managers)) AND 
             (eid_input IN (SELECT eid FROM Employees NATURAL JOIN MeetingRooms WHERE floor = floor_number AND room = room_number))) THEN
-            INSERT INTO Updates(update_date, new_cap, floor, room) VALUES(changed_date, capacity, floor_number, room_number);
+            INSERT INTO Updates(eid, update_date, new_cap, floor, room) VALUES(eid_input, changed_date, capacity, floor_number, room_number);
         END IF;
     END;
 $$ LANGUAGE plpgsql;
@@ -291,7 +291,7 @@ RETURNS TABLE(close_contacts_id BIGINT) AS $$ --assume that health declaration i
     BEGIN
         SELECT fever FROM HealthDeclarations WHERE eid = id ORDER BY declareDate DESC LIMIT 1 INTO curr_fever;
         SELECT declareDate FROM HealthDeclarations WHERE eid = id ORDER BY declareDate DESC LIMIT 1 INTO curr_date;
-        IF fever THEN
+        IF curr_fever = 't' THEN
             DELETE FROM Joins WHERE eid = id AND sessionDate > curr_date; --delete employee from future meetings
             DELETE FROM Sessions WHERE bookerID = id AND sessionDate > curr_date;  --delete sessions booked by the employee /auto deletes sessions in joins
 
@@ -507,7 +507,7 @@ EXECUTE FUNCTION check_for_booking();
 CREATE OR REPLACE FUNCTION join_after_book() 
 RETURNS TRIGGER AS $$
 BEGIN
-    INSERT INTO Joins VALUES(NEW.bookerId, NEW.sessionDate, NEW.sessionTime, NEW.room, NEW.floor);
+    INSERT INTO Joins VALUES(NEW.bookerId, NEW.sessionDate, NEW.sessionTime, NEW.floor, NEW.room);
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
