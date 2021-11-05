@@ -1,3 +1,22 @@
+DROP PROCEDURE IF EXISTS add_department, remove_department, add_room, change_capacity, add_employee, remove_employee, book_room, unbook_room, join_meeting, leave_meeting, approve_meeting, declare_health;
+DROP FUNCTION IF EXISTS search_room, find_room_capacity, check_approval, contact_tracing, non_compliance, view_booking_report, view_future_meeting, view_manager_report, check_type, prevent_junior_booker, check_for_booking, check_for_joining, check_for_modification, join_after_book, cannot_approve_anymore, check_approve, check_exceed_cap;
+DROP TRIGGER is_junior_only ON Juniors;
+DROP TRIGGER is_senior_only ON Seniors;
+DROP TRIGGER is_manager_only ON Managers;
+DROP TRIGGER booker_cannot_be_junior ON Bookers;
+DROP TRIGGER junior_cannot_be_booker ON Juniors;
+DROP TRIGGER before_book_check ON Sessions;
+DROP TRIGGER before_approve_check ON Sessions;
+DROP TRIGGER immediate_join ON Sessions;
+DROP TRIGGER modify_not_approved_yet ON Sessions;
+DROP TRIGGER before_approve_check ON Sessions;
+DROP TRIGGER approve_only_once ON Sessions;
+DROP TRIGGER join_check ON Joins;
+DROP TRIGGER remove_exceed_cap ON Updates;
+
+
+
+
 ---------------------------------- Application Functionalities ------------------------------
 CREATE OR REPLACE PROCEDURE add_department(id INTEGER, name TEXT) AS $$
 	BEGIN
