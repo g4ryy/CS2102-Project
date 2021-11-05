@@ -343,11 +343,18 @@ RETURNS TABLE(id BIGINT, days BIGINT) AS $$
 		totalDays INTEGER := end_date - start_date + 1;
 	BEGIN
 		RETURN QUERY
-		SELECT eid, totalDays - COUNT(*)
+        WITH T AS
+		(SELECT eid, totalDays - COUNT(*) AS num_days
 		FROM HealthDeclarations
 		WHERE declareDate >= start_date AND declareDate <= end_date
 		GROUP BY eid
-		HAVING COUNT(*) < totalDays;
+		HAVING COUNT(*) < totalDays)
+        SELECT * FROM T 
+        UNION
+        SELECT eid,totalDays FROM Employees E WHERE NOT EXISTS (Select 1 FROM T WHERE T.eid = E.eid) 
+        EXCEPT  
+        SELECT eid, totalDays FROM HealthDeclarations WHERE declareDate >= start_date AND declareDate <= end_date group by eid having count(*)  = totalDays
+        ORDER BY num_days DESC;
 	END;
 $$ LANGUAGE plpgsql;
 
