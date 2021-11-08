@@ -282,7 +282,7 @@ $$ LANGUAGE plpgsql;
 
 
 CREATE OR REPLACE FUNCTION contact_tracing(id BIGINT)
-RETURNS TABLE(close_contacts_id BIGINT) AS $$ --assume that health declaration is always moving forward in time
+RETURNS TABLE(close_contacts_id BIGINT) AS $$ --assume that contact tracing will immediately be called when a health declaration is made
     DECLARE
         curr_fever BOOLEAN;
         curr_date DATE;
@@ -292,8 +292,8 @@ RETURNS TABLE(close_contacts_id BIGINT) AS $$ --assume that health declaration i
         SELECT fever FROM HealthDeclarations WHERE eid = id ORDER BY declareDate DESC LIMIT 1 INTO curr_fever;
         SELECT declareDate FROM HealthDeclarations WHERE eid = id ORDER BY declareDate DESC LIMIT 1 INTO curr_date;
         IF curr_fever = 't' THEN
-            DELETE FROM Joins WHERE eid = id AND sessionDate > curr_date; --delete employee from future meetings
-            DELETE FROM Sessions WHERE bookerID = id AND sessionDate > curr_date;  --delete sessions booked by the employee /auto deletes sessions in joins
+            DELETE FROM Joins WHERE eid = id AND ((sessionDate > curr_date) OR (sessionDate = curr_date) AND sessionTime > EXTRACT(HOUR FROM NOW())) ; --delete employee from future meetings
+            DELETE FROM Sessions WHERE bookerID = id AND ((sessionDate > curr_date) OR (sessionDate = curr_date) AND sessionTime > EXTRACT(HOUR FROM NOW()));  --delete sessions booked by the employee /auto deletes sessions in joins
 
             CREATE TEMP TABLE IF NOT EXISTS temp AS
             SELECT DISTINCT(j1.eid)
@@ -322,12 +322,13 @@ RETURNS TABLE(close_contacts_id BIGINT) AS $$ --assume that health declaration i
 
             DELETE FROM Joins j
             WHERE j.eid = r1.eid 
-            AND (j.sessionDate >= curr_date AND 
-                j.sessionDate <= curr_date + 7); --delete contacted employees from future meetings
+            AND (((j.sessionDate = curr_date) AND j.sessionTime > EXTRACT(HOUR FROM NOW())) OR (j.sessionDate > curr_date AND 
+                j.sessionDate <= curr_date + 7)); --delete contacted employees from future meetings
 
             DELETE FROM Sessions S
             WHERE S.bookerId = r1.eid
-            AND (S.sessionDate >= curr_date AND S.sessionDate <= curr_date + 7);
+            AND (((S.sessionDate = curr_date) AND S.sessionTime > EXTRACT(HOUR FROM NOW())) OR (S.sessionDate > curr_date AND 
+                S.sessionDate <= curr_date + 7));
 
             END LOOP;
             CLOSE curs1;
