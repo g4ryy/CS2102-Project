@@ -323,7 +323,11 @@ RETURNS TABLE(close_contacts_id BIGINT) AS $$ --assume that health declaration i
             DELETE FROM Joins j
             WHERE j.eid = r1.eid 
             AND (j.sessionDate >= curr_date AND 
-                j.sessionDate < curr_date + 7); --delete contacted employees from future meetings
+                j.sessionDate <= curr_date + 7); --delete contacted employees from future meetings
+
+            DELETE FROM Sessions S
+            WHERE S.bookerId = r1.eid
+            AND (S.sessionDate >= curr_date AND S.sessionDate <= curr_date + 7);
 
             END LOOP;
             CLOSE curs1;
